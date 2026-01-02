@@ -80,15 +80,27 @@ class RC_Agent(Agent):
 class LearnersAgent(Agent):
     def __init__(self, capacities, n_customer_levels, n_server_levels, uni_constant, learner, model_bounds, rng : np.random._generator.Generator):
         super().__init__(capacities, n_customer_levels, n_server_levels, rng)
-        self.uni_constant = uni_constant
 
+        self.uni_constant = uni_constant
+        self.model_bounds = model_bounds
         self.learner = learner
+
         self.exploration = ucrl.Exploration(model_bounds)
 
         self.reward_norm = 5
 
+    def get_action_from_idx(self, action_idx):
+        cust_level = action_idx // self.model_bounds.n_levels[1]
+        serv_level = action_idx %  self.model_bounds.n_levels[1]
+
+        return (cust_level, serv_level)
+    
+    def get_idx_from_action(self, action):
+        return (action[0]*self.model_bounds.n_levels[1]) + action[1]
+        
+
     def get_action(self, state):
-        return self.learner.play(state)
+        return self.get_action_from_idx(self.learner.play(state))
 
     def normalize_reward(self, reward):
         reward = reward/self.reward_norm
@@ -102,19 +114,21 @@ class LearnersAgent(Agent):
         n_next_transitions = 1
         n_self_transitions = max(round(sojourn_time/self.uni_constant)-1,0)
 
-        final_st = sojourn_time - self.U*n_self_transitions
+        final_st = sojourn_time - self.uni_constant*n_self_transitions
 
         final_reward = (final_st*holding_r) + trans_r
         final_reward = self.normalize_reward(final_reward)
-        sojourn_reward = self.normalize_reward(holding_r*U)
+        sojourn_reward = self.normalize_reward(holding_r*self.uni_constant)
 
         new_episode = False
 
-        for i in range(self.n_self_transitions):
+        for i in range(n_self_transitions):
             self.learner.update(state, action, sojourn_reward, state)
             new_episode = self.exploration.observe(state, action) or new_episode
 
-        self.learner.update(state, action, final_reward, state + transition)
+        action_idx = self.get_idx_from_action(action)
+
+        self.learner.update(state, action_idx, final_reward, state + transition)
         new_episode = self.exploration.observe(state, action) or new_episode
         
         if new_episode:
