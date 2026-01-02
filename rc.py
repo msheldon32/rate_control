@@ -19,6 +19,8 @@ class ParameterEstimator:
 
         self.level_ct = sum(self.model_bounds.n_levels)
 
+        self.state_counts = [0 for j in range(model_bounds.n_states)]
+
         self.cum_h_reward = [0 for i in range(model_bounds.n_states)]
 
         self.cum_cust_rewards = [[0 for j in range(model_bounds.n_levels[0])] for i in range(model_bounds.n_states)]
@@ -27,6 +29,8 @@ class ParameterEstimator:
     def observe(self, state, action, step, time_elapsed, holding_reward, transition_reward):
         self.positive_clock[state] += time_elapsed
         self.negative_clock[state] += time_elapsed
+
+        self.state_counts[state] += 1
 
         is_positive = (step == 1)
 
@@ -50,6 +54,8 @@ class ParameterEstimator:
 
     def transition_reward_bounds(self, state, level, confidence_param, is_positive):
         ct = self.get_count(state, level, is_positive)
+        if ct == 0:
+            return [-1, 1]
         if is_positive:
             point_estimate = self.cum_cust_rewards[state][level]/ct
         else:
@@ -60,7 +66,10 @@ class ParameterEstimator:
         return [max(-1, point_estimate-epsilon), min(1, point_estimate+epsilon)]
     
     def holding_reward_bounds(self, state, confidence_param):
-        ct = self.get_count(state, level, True) + self.get_count(state, level, False)
+        ct = self.state_counts[state]
+
+        if ct == 0:
+            return [-1, 1]
         point_estimate = self.cum_h_reward[state]/ct
 
         epsilon = math.sqrt((math.log((self.model_bounds.n_states*self.level_ct)/confidence_param))/(2*max(1,ct)))
@@ -100,8 +109,8 @@ class ParameterEstimator:
 
         return [lbound, rbound]
 
-    def transition_rate_bounds(self, state, confidence_param, is_positive):
-        ct = self.get_count(state, is_positive)
+    def transition_rate_bounds(self, state, level, confidence_param, is_positive):
+        ct = self.get_count(state, level, is_positive)
 
         if ct == 0:
             return self.get_naive_rate_bounds(state, level, is_positive)

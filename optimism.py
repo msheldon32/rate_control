@@ -1,3 +1,5 @@
+import copy
+
 import model
 
 def build_optimistic_model(parameter_estimator, model_bounds, confidence_param):
@@ -10,12 +12,12 @@ def build_optimistic_model(parameter_estimator, model_bounds, confidence_param):
         naive_customer_rates.append([])
         naive_server_rates.append([])
         for customer_level in range(model_bounds.n_levels[0]):
-            bounds = parameter_estimator.transition_rate_bounds(state_idx, confidence_param, True)
+            bounds = parameter_estimator.transition_rate_bounds(state_idx, customer_level, confidence_param, True)
             naive_customer_rates[-1].append(bounds[0])
             naive_customer_rates[-1].append(bounds[1])
 
         for server_level in range(model_bounds.n_levels[1]):
-            bounds = parameter_estimator.transition_rate_bounds(state_idx, confidence_param, True)
+            bounds = parameter_estimator.transition_rate_bounds(state_idx, server_level, confidence_param, True)
             naive_server_rates[-1].append(bounds[0])
             naive_server_rates[-1].append(bounds[1])
 
@@ -46,7 +48,7 @@ def build_optimistic_model(parameter_estimator, model_bounds, confidence_param):
     
 
     # do the reward estimates
-    holding_rewards = [parameter_estimator.holding_reward_bounds(state_idx)[1] for state_idx in range(model_bounds.n_states)]
+    holding_rewards = [parameter_estimator.holding_reward_bounds(state_idx, confidence_param)[1] for state_idx in range(model_bounds.n_states)]
     customer_rewards = []
     server_rewards = []
 

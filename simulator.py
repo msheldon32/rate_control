@@ -31,12 +31,12 @@ class Simulator:
         holding_reward = self.model.generate_holding_reward(self.state)
         transition_reward = self.model.generate_transition_reward(self.state, action, step)
 
-        self.state += step
-        self.t += sojourn_time
-
         total_reward = holding_reward*sojourn_time + transition_reward
 
-        self.agent.observe(holding_reward, transition_reward, sojourn_time, step)
+        self.agent.observe(state, action, holding_reward, transition_reward, sojourn_time, step)
+
+        self.state += step
+        self.t += sojourn_time
 
         self.observer.observe(self.t, self.state, total_reward)
 
@@ -50,12 +50,18 @@ if __name__ == "__main__":
 
     optimal_agent = agent.PolicyAgent((10,10), 5,5, policy, rng)
 
+    rc_agent = agent.RC_Agent((10, 10),5,5, model_bounds, rng)
+
     optimal_observer = observer.Observer()
+    rc_observer = observer.Observer()
 
     sim = Simulator(model, optimal_agent, optimal_observer, rng)
+    rc_sim = Simulator(model, rc_agent, optimal_observer, rng)
 
     for i in range(1000000):
         sim.step()
+        rc_sim.step()
 
     print(f"empirical gain: {optimal_observer.empirical_gain()}")
+    print(f"learning gain: {rc_observer.empirical_gain()}")
     print(f"estimated gain: {optimal_agent.evaluate(model)}")
