@@ -1,5 +1,6 @@
 import rc
 import optimism
+import ucrl
 
 import numpy as np
 
@@ -19,7 +20,7 @@ class Agent:
     def get_action(self, state):
         return [random.randrange(self.n_customer_levels), random.randrange(self.n_server_levels)]
     
-    def observe(self, state, action, holding_r, trans_r, sojourn_time, transition):
+    def observe(self, time, state, action, holding_r, trans_r, sojourn_time, transition):
         pass
 
 class PolicyAgent(Agent):
@@ -30,7 +31,7 @@ class PolicyAgent(Agent):
     def get_action(self, state):
         return self.policy.get_action(state)
     
-    def observe(self, state, action, holding_r, trans_r, sojourn_time, transition):
+    def observe(self, time, state, action, holding_r, trans_r, sojourn_time, transition):
         pass
 
     def evaluate(self, model):
@@ -57,7 +58,7 @@ class RC_Agent(Agent):
 
         return (ext_action[0]//2, ext_action[1]//2)
 
-    def observe(self, state, action, holding_r, trans_r, sojourn_time, transition):
+    def observe(self, time, state, action, holding_r, trans_r, sojourn_time, transition):
         self.parameter_estimator.observe(self.state_idx(state), action, transition, sojourn_time, holding_r, trans_r)
 
         level = action[0] if transition == 1 else action[1]
@@ -75,3 +76,47 @@ class RC_Agent(Agent):
             #print("----------------------------------------------")
             #self.model.print_rates()
             #self.model.print_rewards()
+
+class LearnersAgent(Agent):
+    def __init__(self, capacities, n_customer_levels, n_server_levels, uni_constant, learner, model_bounds, rng : np.random._generator.Generator):
+        super().__init__(capacities, n_customer_levels, n_server_levels, rng)
+        self.uni_constant = uni_constant
+
+        self.learner = learner
+        self.exploration = ucrl.Exploration(model_bounds)
+
+        self.reward_norm = 5
+
+    def get_action(self, state):
+        return self.learner.play(state)
+
+    def normalize_reward(self, reward):
+        reward = reward/self.reward_norm
+
+        reward = max(reward, -self.reward_norm)
+        reward = min(reward, self.reward_norm)
+
+        return reward
+    
+    def observe(self, time, state, action, holding_r, trans_r, sojourn_time, transition):
+        n_next_transitions = 1
+        n_self_transitions = max(round(sojourn_time/self.uni_constant)-1,0)
+
+        final_st = sojourn_time - self.U*n_self_transitions
+
+        final_reward = (final_st*holding_r) + trans_r
+        final_reward = self.normalize_reward(final_reward)
+        sojourn_reward = self.normalize_reward(holding_r*U)
+
+        new_episode = False
+
+        for i in range(self.n_self_transitions):
+            self.learner.update(state, action, sojourn_reward, state)
+            new_episode = self.exploration.observe(state, action) or new_episode
+
+        self.learner.update(state, action, final_reward, state + transition)
+        new_episode = self.exploration.observe(state, action) or new_episode
+        
+        if new_episode:
+            self.exploration.new_episode()
+            self.learner.new_episode()

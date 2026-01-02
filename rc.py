@@ -141,13 +141,15 @@ class Exploration:
         self.n_episodes = 0
 
     def observe(self, state: int, level, is_positive) -> bool:
+        state_idx = state + self.model_bounds.capacities[1]
+
         level_idx = level
         if not is_positive:
             level_idx += self.model_bounds.n_levels[0]
-        self.state_visit_counts[state][level_idx] += 1
-        self.state_visit_counts_in_episode[state][level_idx] += 1
+        self.state_visit_counts[state_idx][level_idx] += 1
+        self.state_visit_counts_in_episode[state_idx][level_idx] += 1
 
-        return (2*self.state_visit_counts_in_episode[state][level_idx]) >= self.state_visit_counts[state][level_idx]
+        return (2*self.state_visit_counts_in_episode[state_idx][level_idx]) >= self.state_visit_counts[state_idx][level_idx]
 
     def new_episode(self):
         self.state_visit_counts_in_episode = [[0 for j in range(self.level_ct)] for i in range(self.model_bounds.n_states)]
