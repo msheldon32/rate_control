@@ -1,0 +1,229 @@
+import policy
+
+import numpy as np
+
+class ModelRewards:
+    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities):
+        self.holding_rewards = holding_rewards
+        self.customer_rewards = customer_rewards
+        self.server_rewards = server_rewards
+        self.capacities = capacities
+
+    def generate_customer_reward(self, state_idx, level, rng):
+        return self.customer_rewards[state_idx][level]
+
+    def generate_server_reward(self, state_idx, level, rng):
+        return self.server_rewards[state_idx][level]
+
+    def generate_holding_reward(self, state_idx, rng):
+        return self.holding_rewards[state_idx]
+
+class Model:
+    def __init__(self, customer_levels, server_levels, rewards, capacities, rng : np.random._generator.Generator):
+        self.customer_levels = customer_levels
+        self.server_levels = server_levels
+        self.capacities = capacities
+        self.rewards = rewards
+
+        self.n_states = sum(self.capacities)+1
+
+        self.rng = rng
+
+    def get_state_idx(self, state):
+        return state + self.capacities[1] # server capacities are after customer ones
+
+    def get_customer_rate(self, state, level):
+        state_idx = self.get_state_idx(state)
+
+        return self.customer_levels[state_idx][level]
+
+    def get_server_rate(self, state, level):
+        state_idx = self.get_state_idx(state)
+
+        return self.server_levels[state_idx][level]
+    
+    def generate_transition_reward(self, state, action, transition):
+        state_idx = self.get_state_idx(state)
+        if transition == -1:
+            return self.rewards.generate_server_reward(state_idx, action[1], self.rng)
+        elif transition == 1:
+            return self.rewards.generate_customer_reward(state_idx, action[0], self.rng)
+        else:
+            raise Exception("Invalid transition")
+    
+    def generate_holding_reward(self, state):
+        state_idx = self.get_state_idx(state)
+        return self.rewards.generate_holding_reward(state_idx, self.rng)
+    
+    
+    def get_state_reward(self, state_idx, action):
+        cust_reward = self.customer_levels[state_idx][action[0]] * self.rewards.customer_rewards[state_idx][action[0]]
+        serv_reward = self.server_levels[state_idx][action[1]] * self.rewards.server_rewards[state_idx][action[1]]
+
+        state_reward = cust_reward + serv_reward + self.rewards.holding_rewards[state_idx]
+        return state_reward
+
+    def get_mean_rewards(self, policy_):
+        # get the mean reward in each state (indexed)
+        mean_rewards = []
+        
+        for state_idx in range(self.n_states):
+            state_reward = self.get_state_reward(state_idx, policy_.get_action_idx(state_idx))
+            
+            mean_rewards.append(state_reward)
+
+        return mean_rewards
+
+
+    def get_distribution(self, policy_):
+        # get the stationary distribution of the policy
+
+        unnorm_probs = [1]
+
+        for state_idx in range(1, self.n_states):
+            action = policy_.get_action_idx(state_idx)
+            cust_rate = self.customer_levels[state_idx-1][policy_.get_action_idx(state_idx-1)[0]]
+            serv_rate = self.server_levels[state_idx][action[1]]
+
+            if serv_rate == 0:
+                if state_idx <= self.capacities[1]:
+                    unnorm_probs = [0 for x in unnorm_probs]
+                    unnorm_probs.append(1)
+                    continue
+                
+                raise Exception("distribution is not unichain with recurrent 0")
+
+            
+            new_prob = (cust_rate/serv_rate) * unnorm_probs[-1]
+            unnorm_probs.append(new_prob)
+
+        norm = sum(unnorm_probs)
+        return [x/norm for x in unnorm_probs]
+    
+    def evaluate_policy(self, policy_):
+        # return the gain and bias of this policy
+        mean_rewards = self.get_mean_rewards(policy_)
+        distribution = self.get_distribution(policy_)
+
+        gain = sum([x * y for x,y in zip(mean_rewards, distribution)])
+
+        bias_diff = []
+        bias_acc = 0
+
+        # start with the base case, i.e. the lowest state. Lambda must be positive here (except in the trivial case)
+        cust_rate = self.customer_levels[0][policy_.get_action_idx(0)[0]]
+        bias_diff.append((gain - mean_rewards[0])/cust_rate)
+
+        # find the bias via forward induction
+        for state_idx in range(1, self.n_states-1):
+            cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
+            serv_rate = self.server_levels[state_idx][policy_.get_action_idx(state_idx)[1]]
+
+            if cust_rate == 0:
+                # this will be added in the backward pass
+                bias_diff.append(None)
+                continue
+
+            bd = (serv_rate/cust_rate)*bias_diff[-1] + (gain - mean_rewards[state_idx])/cust_rate
+            bias_diff.append(bd)
+
+        for state_idx in range(self.n_states-1, -1, -1):
+            # backward pass to fill in missing entries. Mu must be positive
+            cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
+            serv_rate = self.server_levels[state_idx][policy_.get_action_idx(state_idx)[1]]
+
+            if cust_rate != 0:
+                break
+
+            bias_diff[state_idx-1] = (mean_rewards[state_idx] - gain)/serv_rate
+
+        # transform relative bias into absolute bias
+        bias = [0]
+
+        for bd in bias_diff:
+            bias.append(bias[-1] + bd)
+
+        # normalize 
+        bnorm = 0
+        for p, h in zip(distribution, bias):
+            bnorm += p * h
+        bias = [h - bnorm for h in bias]
+        
+        return gain, bias
+
+    def improve_policy(self, policy_):
+        gain, bias = self.evaluate_policy(policy_)
+
+        new_mapping = []
+
+        for state_idx in range(self.n_states):
+            max_bias = float("-inf")
+            argmax = 0
+            for cust_level, cust_rate in enumerate(self.customer_levels[state_idx]):
+                cust_reward = self.rewards.customer_rewards[state_idx][cust_level]
+
+                for serv_level, serv_rate in enumerate(self.server_levels[state_idx]):
+                    serv_reward = self.rewards.server_rewards[state_idx][serv_level]
+                    
+                    bias_nom = 0
+                    if cust_rate > 0:
+                        bias_nom += cust_rate * bias[state_idx+1]
+
+                    if serv_rate > 0:
+                        bias_nom += serv_rate * bias[state_idx-1]
+
+                    bias_nom += self.get_state_reward(state_idx, (cust_level, serv_level))
+                    bias_nom -= gain
+
+                    total_rate = cust_rate + serv_rate
+
+                    if (bias_nom/total_rate) > max_bias:
+                        max_bias = bias_nom/total_rate
+                        argmax = (cust_level, serv_level)
+            new_mapping.append(argmax)
+
+        return policy.Policy(new_mapping, self.capacities), gain
+
+    def get_optimal_policy(self, n_iterations=100):
+        default_mapping = [(0,0) for i in range(self.n_states)]
+        new_policy = policy.Policy(default_mapping, self.capacities)
+
+        for i in range(n_iterations):
+            new_policy, gain = self.improve_policy(new_policy)
+
+        return new_policy
+
+    def print_rates(self):
+        for state in range(0, self.n_states):
+            print(f"({state-self.capacities[1]}): server_rates: {self.server_levels[state]}, customer_rates: {self.customer_levels[state]}")
+
+def generate_random_model(capacities, n_levels, rate_lb, rate_ub, rng : np.random._generator.Generator):
+    n_states = sum(capacities)+1
+    holding_rewards = list(rng.uniform(-1,1,n_states))
+    customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
+    server_rewards = [list(rng.uniform(-1,1,n_levels[1])) for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+
+    customer_levels = []
+    server_levels = []
+
+    rate_midpoint = (rate_ub+rate_lb)/2
+
+    upper_c = sorted(list(rng.uniform(rate_midpoint, rate_ub, n_states)), reverse=True)
+    upper_s = sorted(list(rng.uniform(rate_midpoint, rate_ub, n_states)))
+
+    lower_c = sorted(list(rng.uniform(rate_lb, rate_midpoint, n_states)), reverse=True)
+    lower_s = sorted(list(rng.uniform(rate_lb, rate_midpoint, n_states)))
+
+    for state in range(n_states):
+        other_c = list(rng.uniform(lower_c[state], upper_c[state], n_levels[0]-2))
+        other_s = list(rng.uniform(lower_s[state], upper_s[state], n_levels[1]-2))
+
+        customer_levels.append(other_c + [lower_c[state], upper_c[state]])
+        server_levels.append(other_s + [lower_s[state], upper_s[state]])
+
+    customer_levels[-1] = [0 for x in customer_levels[-1]]
+    server_levels[0] = [0 for x in server_levels[0]]
+
+    model = Model(customer_levels, server_levels, rewards, capacities, rng)
+    return model
