@@ -19,7 +19,7 @@ class Agent:
     def get_action(self, state):
         return [random.randrange(self.n_customer_levels), random.randrange(self.n_server_levels)]
     
-    def observe(self, state, holding_r, trans_r, sojourn_time, transition):
+    def observe(self, state, action, holding_r, trans_r, sojourn_time, transition):
         pass
 
 class PolicyAgent(Agent):
@@ -30,7 +30,7 @@ class PolicyAgent(Agent):
     def get_action(self, state):
         return self.policy.get_action(state)
     
-    def observe(self, state, holding_r, trans_r, sojourn_time, transition):
+    def observe(self, state, action, holding_r, trans_r, sojourn_time, transition):
         pass
 
     def evaluate(self, model):
@@ -46,8 +46,11 @@ class RC_Agent(Agent):
 
         self.initial_confidence_param = INITIAL_CONFIDENCE_PARAM
 
-        self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, self.initial_confidence_param)
-        self.policy = self.model.get_optimal_policy()
+        self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, self.initial_confidence_param, self.rng)
+        self.policy,_ = self.model.get_optimal_policy()
+
+    def state_idx(self, state):
+        return state + self.model_bounds.capacities[1]
 
     def get_action(self, state):
         ext_action = self.policy.get_action(state)
@@ -55,7 +58,7 @@ class RC_Agent(Agent):
         return (ext_action[0]//2, ext_action[1]//2)
 
     def observe(self, state, action, holding_r, trans_r, sojourn_time, transition):
-        self.parameter_estimator.observe(state, action, transition, sojourn_time, holding_r, trans_r)
+        self.parameter_estimator.observe(self.state_idx(state), action, transition, sojourn_time, holding_r, trans_r)
 
         level = action[0] if transition == 1 else action[1]
 
@@ -64,4 +67,11 @@ class RC_Agent(Agent):
         if new_episode:
             self.exploration.new_episode()
             confidence_param = self.initial_confidence_param / self.exploration.steps_before_episode
-            self.policy = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, confidence_param)
+            self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, confidence_param, self.rng)
+            self.policy, gain = self.model.get_optimal_policy()
+            print(f"new policy, optimistic gain: {gain}")
+            #print("----------------------------------------------")
+            #self.parameter_estimator.print_rate_bounds(confidence_param) 
+            #print("----------------------------------------------")
+            #self.model.print_rates()
+            #self.model.print_rewards()

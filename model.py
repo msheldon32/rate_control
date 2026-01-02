@@ -18,6 +18,10 @@ class ModelRewards:
     def generate_holding_reward(self, state_idx, rng):
         return self.holding_rewards[state_idx]
 
+    def print_rewards(self):
+        for state in range(0, sum(self.capacities)+1):
+            print(f"({state-self.capacities[1]}): holding_reward: {self.holding_rewards[state]}, customer_rewards: {self.customer_rewards[state]}, server_rewards: {self.server_rewards[state]}")
+
 class ModelBounds:
     def __init__(self, capacities, n_levels, rate_lb, rate_ub):
         self.capacities = capacities
@@ -165,6 +169,8 @@ class Model:
 
         new_mapping = []
 
+        changed = False
+
         for state_idx in range(self.n_states):
             max_bias = float("-inf")
             argmax = 0
@@ -190,21 +196,28 @@ class Model:
                         max_bias = bias_nom/total_rate
                         argmax = (cust_level, serv_level)
             new_mapping.append(argmax)
+            if argmax != policy_.get_action_idx(state_idx):
+                changed = True
 
-        return policy.Policy(new_mapping, self.capacities), gain
+        return policy.Policy(new_mapping, self.capacities), gain, changed
 
-    def get_optimal_policy(self, n_iterations=100):
+    def get_optimal_policy(self, n_iterations=1000):
         default_mapping = [(0,0) for i in range(self.n_states)]
         new_policy = policy.Policy(default_mapping, self.capacities)
 
         for i in range(n_iterations):
-            new_policy, gain = self.improve_policy(new_policy)
-
-        return new_policy
+            new_policy, gain, changed = self.improve_policy(new_policy)
+            if not changed:
+                break
+        gain, bias = self.evaluate_policy(new_policy)
+        return new_policy, gain
 
     def print_rates(self):
         for state in range(0, self.n_states):
             print(f"({state-self.capacities[1]}): server_rates: {self.server_levels[state]}, customer_rates: {self.customer_levels[state]}")
+
+    def print_rewards(self):
+        self.rewards.print_rewards()
 
 def generate_random_model(model_bounds, rng : np.random._generator.Generator):
     capacities = model_bounds.capacities

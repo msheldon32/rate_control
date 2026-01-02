@@ -33,7 +33,7 @@ class Simulator:
 
         total_reward = holding_reward*sojourn_time + transition_reward
 
-        self.agent.observe(state, action, holding_reward, transition_reward, sojourn_time, step)
+        self.agent.observe(self.state, action, holding_reward, transition_reward, sojourn_time, step)
 
         self.state += step
         self.t += sojourn_time
@@ -42,23 +42,28 @@ class Simulator:
 
 if __name__ == "__main__":
     rng = np.random.default_rng()
-    model_bounds = model.ModelBounds((10,10), (5,5), 1, 10)
+    model_bounds = model.ModelBounds((100,100), (3,3), 1, 10)
     model = model.generate_random_model(model_bounds, rng)
     model.print_rates()
+    model.print_rewards()
+    input("continue...")
 
-    policy = model.get_optimal_policy()
+    policy, _ = model.get_optimal_policy()
 
-    optimal_agent = agent.PolicyAgent((10,10), 5,5, policy, rng)
+    optimal_agent = agent.PolicyAgent((100,100), 3,3, policy, rng)
 
-    rc_agent = agent.RC_Agent((10, 10),5,5, model_bounds, rng)
+    rc_agent = agent.RC_Agent((100, 100),3,3, model_bounds, rng)
 
     optimal_observer = observer.Observer()
     rc_observer = observer.Observer()
 
     sim = Simulator(model, optimal_agent, optimal_observer, rng)
-    rc_sim = Simulator(model, rc_agent, optimal_observer, rng)
+    rc_sim = Simulator(model, rc_agent, rc_observer, rng)
 
-    for i in range(1000000):
+    for i in range(1000000000):
+        if i % 1000 == 0 and i != 0:
+            print(f"(optimal) trailing gain: {optimal_observer.trailing_gain(1000)}")
+            print(f"(rc) trailing gain: {rc_observer.trailing_gain(1000)}")
         sim.step()
         rc_sim.step()
 

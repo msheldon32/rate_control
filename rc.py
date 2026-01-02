@@ -27,8 +27,8 @@ class ParameterEstimator:
         self.cum_serv_rewards = [[0 for j in range(model_bounds.n_levels[1])] for i in range(model_bounds.n_states)]
 
     def observe(self, state, action, step, time_elapsed, holding_reward, transition_reward):
-        self.positive_clock[state] += time_elapsed
-        self.negative_clock[state] += time_elapsed
+        self.positive_clock[state][action[0]] += time_elapsed
+        self.negative_clock[state][action[1]] += time_elapsed
 
         self.state_counts[state] += 1
 
@@ -37,13 +37,13 @@ class ParameterEstimator:
         self.cum_h_reward[state] += holding_reward
 
         if is_positive:
-            self.positive_sojourn_times[state][action[0]].append(self.positive_clock[state])
-            self.positive_clock[state] = 0
+            self.positive_sojourn_times[state][action[0]].append(self.positive_clock[state][action[0]])
+            self.positive_clock[state][action[0]] = 0
             
             self.cum_cust_rewards[state][action[0]] += transition_reward
         else:
-            self.negative_sojourn_times[state][action[1]].append(self.negative_clock[state])
-            self.negative_clock[state] = 0
+            self.negative_sojourn_times[state][action[1]].append(self.negative_clock[state][action[1]])
+            self.negative_clock[state][action[1]] = 0
 
             self.cum_serv_rewards[state][action[1]] += transition_reward
 
@@ -59,7 +59,7 @@ class ParameterEstimator:
         if is_positive:
             point_estimate = self.cum_cust_rewards[state][level]/ct
         else:
-            point_estimate = self.cum_cust_rewards[state][level]/ct
+            point_estimate = self.cum_serv_rewards[state][level]/ct
 
         epsilon = math.sqrt((math.log((self.model_bounds.n_states*self.level_ct)/confidence_param))/(2*max(1,ct)))
 
@@ -84,7 +84,7 @@ class ParameterEstimator:
         if ct == 0:
             return min_rate
 
-        times = self.positive_sojourn_times[state][level] if is_positive else self.negative_sojourn_times[state]
+        times = self.positive_sojourn_times[state][level] if is_positive else self.negative_sojourn_times[state][level]
 
         for i, stime in enumerate(times):
             truncation = math.sqrt(2*(i+1)/(math.pow(min_rate,2)*max(math.log((self.model_bounds.n_states*self.level_ct)/confidence_param),0.00001)))
@@ -115,15 +115,21 @@ class ParameterEstimator:
         if ct == 0:
             return self.get_naive_rate_bounds(state, level, is_positive)
 
-        st = self.sojourn_time_estimate(state, confidence_param, is_positive)
-        ste = self.sojourn_time_epsilon(state, confidence_param, is_positive)
+        st = self.sojourn_time_estimate(state, level, confidence_param, is_positive)
+        ste = self.sojourn_time_epsilon(state, level, confidence_param, is_positive)
 
-        min_rate, max_rate = self.get_naive_rate_bounds(state, is_positive)
+        min_rate, max_rate = self.get_naive_rate_bounds(state, level, is_positive)
 
         stime_lb = min(max(st-ste, 1/max_rate), 1/min_rate)
         stime_ub = min(max(st+ste, 1/max_rate), 1/min_rate)
 
         return [1/stime_ub, 1/stime_lb]
+
+    def print_rate_bounds(self, confidence_param):
+        for state in range(self.model_bounds.n_states):
+            cust_bounds = [self.transition_rate_bounds(state, level, confidence_param, True) for level in range(self.model_bounds.n_levels[0])]
+            serv_bounds = [self.transition_rate_bounds(state, level, confidence_param, False) for level in range(self.model_bounds.n_levels[1])]
+            print(f"(idx: {state})\n\tcustomer_bounds: {cust_bounds}\n\tserver_bounds: {serv_bounds}")
 
 class Exploration:
     def __init__(self, model_bounds: model.ModelBounds):
