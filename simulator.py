@@ -42,7 +42,8 @@ class Simulator:
 
 if __name__ == "__main__":
     rng = np.random.default_rng()
-    model = model.generate_random_model((10,10), (5,5), 1, 10, rng)
+    model_bounds = model.ModelBounds((10,10), (5,5), 1, 10)
+    model = model.generate_random_model(model_bounds, rng)
     model.print_rates()
 
     policy = model.get_optimal_policy()

@@ -18,6 +18,14 @@ class ModelRewards:
     def generate_holding_reward(self, state_idx, rng):
         return self.holding_rewards[state_idx]
 
+class ModelBounds:
+    def __init__(self, capacities, n_levels, rate_lb, rate_ub):
+        self.capacities = capacities
+        self.n_levels = n_levels
+
+        self.rate_lb = rate_lb
+        self.rate_ub = rate_ub
+
 class Model:
     def __init__(self, customer_levels, server_levels, rewards, capacities, rng : np.random._generator.Generator):
         self.customer_levels = customer_levels
@@ -197,7 +205,12 @@ class Model:
         for state in range(0, self.n_states):
             print(f"({state-self.capacities[1]}): server_rates: {self.server_levels[state]}, customer_rates: {self.customer_levels[state]}")
 
-def generate_random_model(capacities, n_levels, rate_lb, rate_ub, rng : np.random._generator.Generator):
+def generate_random_model(model_bounds, rng : np.random._generator.Generator):
+    capacities = model_bounds.capacities
+    n_levels = model_bounds.n_levels
+    rate_lb = model_bounds.rate_lb
+    rate_ub = model_bounds.rate_ub
+
     n_states = sum(capacities)+1
     holding_rewards = list(rng.uniform(-1,1,n_states))
     customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
