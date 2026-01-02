@@ -19,23 +19,53 @@ class ParameterEstimator:
 
         self.level_ct = sum(self.model_bounds.n_levels)
 
-    def observe(self, state, action, step, time_elapsed):
+        self.cum_h_reward = [0 for i in range(model_bounds.n_states)]
+
+        self.cum_cust_rewards = [[0 for j in range(model_bounds.n_levels[0])] for i in range(model_bounds.n_states)]
+        self.cum_serv_rewards = [[0 for j in range(model_bounds.n_levels[1])] for i in range(model_bounds.n_states)]
+
+    def observe(self, state, action, step, time_elapsed, holding_reward, transition_reward):
         self.positive_clock[state] += time_elapsed
         self.negative_clock[state] += time_elapsed
 
         is_positive = (step == 1)
 
+        self.cum_h_reward[state] += holding_reward
+
         if is_positive:
             self.positive_sojourn_times[state][action[0]].append(self.positive_clock[state])
             self.positive_clock[state] = 0
+            
+            self.cum_cust_rewards[state][action[0]] += transition_reward
         else:
             self.negative_sojourn_times[state][action[1]].append(self.negative_clock[state])
             self.negative_clock[state] = 0
+
+            self.cum_serv_rewards[state][action[1]] += transition_reward
 
     def get_count(self, state, level, is_positive):
         if is_positive:
             return len(self.positive_sojourn_times[state][level])
         return len(self.negative_sojourn_times[state][level])
+
+    def transition_reward_bounds(self, state, level, confidence_param, is_positive):
+        ct = self.get_count(state, level, is_positive)
+        if is_positive:
+            point_estimate = self.cum_cust_rewards[state][level]/ct
+        else:
+            point_estimate = self.cum_cust_rewards[state][level]/ct
+
+        epsilon = math.sqrt((math.log((self.model_bounds.n_states*self.level_ct)/confidence_param))/(2*max(1,ct)))
+
+        return [max(-1, point_estimate-epsilon), min(1, point_estimate+epsilon)]
+    
+    def holding_reward_bounds(self, state, confidence_param):
+        ct = self.get_count(state, level, True) + self.get_count(state, level, False)
+        point_estimate = self.cum_h_reward[state]/ct
+
+        epsilon = math.sqrt((math.log((self.model_bounds.n_states*self.level_ct)/confidence_param))/(2*max(1,ct)))
+
+        return [max(-1, point_estimate-epsilon), min(1, point_estimate+epsilon)]
 
     def sojourn_time_estimate(self, state, level, confidence_param, is_positive):
         acc = 0

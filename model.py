@@ -25,6 +25,7 @@ class ModelBounds:
 
         self.rate_lb = rate_lb
         self.rate_ub = rate_ub
+        self.n_states = sum(self.capacities)+1
 
 class Model:
     def __init__(self, customer_levels, server_levels, rewards, capacities, rng : np.random._generator.Generator):
