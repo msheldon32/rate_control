@@ -124,15 +124,15 @@ class LearnersAgent(Agent):
         new_episode = False
 
         state_idx = state + self.capacities[1]
+        action_idx = self.get_idx_from_action(action)
 
         for i in range(n_self_transitions):
             self.learner.update(state_idx, action_idx, sojourn_reward, state)
-            new_episode = self.exploration.observe(state_idx, action_idx) or new_episode
+            new_episode = self.exploration.observe(state, action) or new_episode
 
-        action_idx = self.get_idx_from_action(action)
 
         self.learner.update(state_idx, action_idx, final_reward, state + transition)
-        new_episode = self.exploration.observe(state_idx, action_idx) or new_episode
+        new_episode = self.exploration.observe(state, action) or new_episode
         
         if new_episode:
             self.exploration.new_episode()
