@@ -101,7 +101,7 @@ class LearnersAgent(Agent):
         
 
     def get_action(self, state):
-        return self.get_action_from_idx(self.learner.play(state))
+        return self.get_action_from_idx(self.learner.play(state+self.capacities[1]))
 
     def normalize_reward(self, reward):
         reward = reward/self.reward_norm
