@@ -69,7 +69,7 @@ class RC_Agent(Agent):
             self.exploration.new_episode()
             confidence_param = self.initial_confidence_param / self.exploration.steps_before_episode
             self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, confidence_param, self.rng)
-            self.policy, gain = self.model.get_optimal_policy()
+            self.policy, gain = self.model.get_optimal_policy(original_policy=self.policy)
             print(f"new policy, optimistic gain: {gain}")
             #print("----------------------------------------------")
             #self.parameter_estimator.print_rate_bounds(confidence_param) 
