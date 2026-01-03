@@ -84,6 +84,7 @@ class LearnersAgent(Agent):
         self.uni_constant = uni_constant
         self.model_bounds = model_bounds
         self.learner = learner
+        self.learner.reset(self.model_bounds.capacities[1])
 
         self.exploration = ucrl.Exploration(model_bounds)
 
@@ -122,14 +123,16 @@ class LearnersAgent(Agent):
 
         new_episode = False
 
+        state_idx = state + self.capacities[1]
+
         for i in range(n_self_transitions):
-            self.learner.update(state, action_idx, sojourn_reward, state)
-            new_episode = self.exploration.observe(state, action) or new_episode
+            self.learner.update(state_idx, action_idx, sojourn_reward, state)
+            new_episode = self.exploration.observe(state_idx, action_idx) or new_episode
 
         action_idx = self.get_idx_from_action(action)
 
-        self.learner.update(state, action_idx, final_reward, state + transition)
-        new_episode = self.exploration.observe(state, action) or new_episode
+        self.learner.update(state_idx, action_idx, final_reward, state + transition)
+        new_episode = self.exploration.observe(state_idx, action_idx) or new_episode
         
         if new_episode:
             self.exploration.new_episode()
