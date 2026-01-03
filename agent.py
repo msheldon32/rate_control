@@ -123,7 +123,7 @@ class LearnersAgent(Agent):
         new_episode = False
 
         for i in range(n_self_transitions):
-            self.learner.update(state, action, sojourn_reward, state)
+            self.learner.update(state, action_idx, sojourn_reward, state)
             new_episode = self.exploration.observe(state, action) or new_episode
 
         action_idx = self.get_idx_from_action(action)
