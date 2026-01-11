@@ -44,7 +44,7 @@ class Simulator:
 
 if __name__ == "__main__":
     rng = np.random.default_rng()
-    model_bounds = model.ModelBounds((50,50), (3,3), 1, 5)
+    model_bounds = model.ModelBounds((25,25), (3,3), 1, 5)
     model = model.generate_random_model(model_bounds, rng)
     model.print_rates()
     model.print_rewards()
@@ -53,10 +53,10 @@ if __name__ == "__main__":
     input("continue...")
     
 
-    optimal_agent = agent.PolicyAgent((50,50), 3,3, policy, rng)
-    rc_agent = agent.RC_Agent((50, 50),3,3, model_bounds, rng)
+    optimal_agent = agent.PolicyAgent((25,25), 3,3, policy, rng)
+    rc_agent = agent.RC_Agent((25,25),3,3, model_bounds, rng)
     kl_ucrl = KL_UCRL(model_bounds.n_states, model_bounds.n_actions, 0.05)
-    kl_agent = agent.LearnersAgent((50,50), 3, 3, 1/2, kl_ucrl, model_bounds, rng)
+    kl_agent = agent.LearnersAgent((25,25), 3, 3, 1/2, kl_ucrl, model_bounds, rng)
 
     optimal_observer = observer.Observer()
     rc_observer = observer.Observer()

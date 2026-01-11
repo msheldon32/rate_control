@@ -3,21 +3,24 @@ import policy
 import numpy as np
 import random
 
+from util import *
+
 class ModelRewards:
-    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities):
+    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities, noise=0.5):
         self.holding_rewards = holding_rewards
         self.customer_rewards = customer_rewards
         self.server_rewards = server_rewards
         self.capacities = capacities
+        self.noise = noise
 
     def generate_customer_reward(self, state_idx, level, rng):
-        return self.customer_rewards[state_idx][level]
+        return self.customer_rewards[state_idx][level]+ rng.normal(0, self.noise)
 
     def generate_server_reward(self, state_idx, level, rng):
-        return self.server_rewards[state_idx][level]
+        return self.server_rewards[state_idx][level]+ rng.normal(0, self.noise)
 
     def generate_holding_reward(self, state_idx, rng):
-        return self.holding_rewards[state_idx]
+        return self.holding_rewards[state_idx]+ rng.normal(0, self.noise)
 
     def print_rewards(self):
         for state in range(0, sum(self.capacities)+1):
@@ -306,7 +309,11 @@ def generate_random_model(model_bounds, rng : np.random._generator.Generator):
     rate_ub = model_bounds.rate_ub
 
     n_states = sum(capacities)+1
-    holding_rewards = list(rng.uniform(-1,1,n_states))
+    #holding_rewards = list(rng.uniform(-1,1,n_states))
+    holding_rewards = []
+    for state_idx in range(n_states):
+        state = state_idx-capacities[1]
+        holding_rewards.append(0.04 * abs(state))
     customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
     server_rewards = [list(rng.uniform(-1,1,n_levels[1])) for i in range(n_states)]
     rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
