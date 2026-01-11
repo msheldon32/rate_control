@@ -1,3 +1,5 @@
+import pickle
+
 class ExperimentRun:
     def __init__(self, model_, model_bounds, rng, max_step_count):
         self.model = model_
@@ -16,10 +18,25 @@ class ExperimentRun:
         self.agent_sim = simulator.Simulator(model, self.agent, self.agent_observer, self.rng)
         self.ablation_sim = simulator.Simulator(model, self.ablation_agent, self.ablation_observer, self.rng)
 
-    def run(self):
+
+        _, self.ideal_gain = self.model.get_optimal_policy(n_iterations=10000)
+
+    def run(self, verbose=False):
         for i in range(self.max_step_count):
             self.agent_sim.step()
             self.ablation_sim.step()
+
+            if verbose and i > 0 and i % 10000 == 0:
+                print(f"After {i} steps")
+                print(f"Trailing gain (rc): ", self.agent_observer.get_past_n_gain(10000))
+                print(f"Trailing gain (ablation): ", self.ablation_observer.get_past_n_gain(10000))
+
+    def summarize(self, timestep=10000):
+        return {
+            "rc": self.agent_observer.summarize(self.ideal_gain, timestep),
+            "ablation": self.ablation_observer.summarize(self.ideal_gain, timestep)
+                }
+
 
 class Experiment:
     def __init__(self, model_bounds, max_step_count, starting_seed=0, starting_no=0, ending_no=50):
@@ -37,6 +54,13 @@ class Experiment:
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
+            try:
+                run.run(verbose=True)
+            except Exception as e:
+                print(f"Run {run_no} failed, skipping...")
+                continue
+            with open(f"exp_out/{self.model_bounds.n_states}_states/run_{run_no}", "wb") as f:
+                pickle.dump(run.summarize(), f)
 
 if __name__ == "__main__":
     input("Generate random rewards first.")

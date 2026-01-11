@@ -6,21 +6,38 @@ import random
 from util import *
 
 class ModelRewards:
-    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities, noise=0.5):
+    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities, noise=2):
         self.holding_rewards = holding_rewards
         self.customer_rewards = customer_rewards
         self.server_rewards = server_rewards
         self.capacities = capacities
         self.noise = noise
 
+    def beta_gen(self, mean, rng):
+        beta_mean = (mean+1)/2
+
+        # find alpha such that alpha/(alpha+beta) = beta_mean
+        # alpha = (alpha+beta)*beta_mean
+        # (1-beta_mean)*alpha = beta*beta_mean
+        # alpha = (beta/(1-beta_mean))*beta_mean
+
+        alpha = (self.noise/(1-beta_mean))*beta_mean
+
+        beta_val = rng.beta(alpha, self.noise)
+
+        return (2*beta_val)-1
+
     def generate_customer_reward(self, state_idx, level, rng):
-        return self.customer_rewards[state_idx][level]+ rng.normal(0, self.noise)
+        #return self.customer_rewards[state_idx][level]+ rng.normal(0, self.noise)
+
+        return self.beta_gen(self.customer_rewards[state_idx][level], rng)
 
     def generate_server_reward(self, state_idx, level, rng):
-        return self.server_rewards[state_idx][level]+ rng.normal(0, self.noise)
+        #return self.server_rewards[state_idx][level]+ rng.normal(0, self.noise)
+        return self.beta_gen(self.server_rewards[state_idx][level], rng)
 
     def generate_holding_reward(self, state_idx, rng):
-        return self.holding_rewards[state_idx]+ rng.normal(0, self.noise)
+        return self.beta_gen(self.holding_rewards[state_idx], rng)
 
     def print_rewards(self):
         for state in range(0, sum(self.capacities)+1):
@@ -313,7 +330,11 @@ def generate_random_model(model_bounds, rng : np.random._generator.Generator):
     holding_rewards = []
     for state_idx in range(n_states):
         state = state_idx-capacities[1]
-        holding_rewards.append(0.04 * abs(state))
+        if state >= 0:
+            holding_rewards.append(state/(capacities[0]+1))
+        else:
+            holding_rewards.append(-state/(capacities[1]+1))
+        #holding_rewards.append(0.04 * abs(state))
     customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
     server_rewards = [list(rng.uniform(-1,1,n_levels[1])) for i in range(n_states)]
     rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
