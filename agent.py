@@ -38,7 +38,7 @@ class PolicyAgent(Agent):
         return model.evaluate_policy(self.policy)
 
 class RC_Agent(Agent):
-    def __init__(self, capacities, n_customer_levels, n_server_levels, model_bounds, rng : np.random._generator.Generator):
+    def __init__(self, capacities, n_customer_levels, n_server_levels, model_bounds, rng : np.random._generator.Generator, ablation=False):
         super().__init__(capacities, n_customer_levels, n_server_levels, rng)
         self.model_bounds = model_bounds
 
@@ -49,6 +49,7 @@ class RC_Agent(Agent):
 
         self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, self.initial_confidence_param, self.rng)
         self.policy,_ = self.model.get_optimal_policy()
+        self.ablation = ablation
 
     def state_idx(self, state):
         return state + self.model_bounds.capacities[1]
@@ -68,7 +69,7 @@ class RC_Agent(Agent):
         if new_episode:
             self.exploration.new_episode()
             confidence_param = self.initial_confidence_param / self.exploration.steps_before_episode
-            self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, confidence_param, self.rng)
+            self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, confidence_param, self.rng, self.ablation)
             self.policy, gain = self.model.get_optimal_policy(original_policy=self.policy)
             print(f"new policy, optimistic gain: {gain}")
             #print("----------------------------------------------")

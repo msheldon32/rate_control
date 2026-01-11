@@ -2,7 +2,7 @@ import copy
 
 import model
 
-def build_optimistic_model(parameter_estimator, model_bounds, confidence_param, rng):
+def build_optimistic_model(parameter_estimator, model_bounds, confidence_param, rng, ablation=False):
     n_opt_levels = (model_bounds.n_levels[0]*2, model_bounds.n_levels[1]*2)
     optimistic_bounds = model.ModelBounds(model_bounds.capacities, n_opt_levels, model_bounds.rate_lb, model_bounds.rate_ub)
 
@@ -24,28 +24,28 @@ def build_optimistic_model(parameter_estimator, model_bounds, confidence_param, 
     # truncate customer/server rates appropriately
     customer_rates = copy.deepcopy(naive_customer_rates)
     server_rates = copy.deepcopy(naive_server_rates)
+    if not ablation:
 
-    max_cust = max(customer_rates[0])
-    min_serv = min(server_rates[0])
+        max_cust = max(customer_rates[0])
+        min_serv = min(server_rates[0])
 
-    for state in range(1, model_bounds.n_states):
-        # truncate appropriately
-        customer_rates[state] = [min(x, max_cust) for x in customer_rates[state]]
-        max_cust = max(customer_rates[state])
+        for state in range(1, model_bounds.n_states):
+            # truncate appropriately
+            customer_rates[state] = [min(x, max_cust) for x in customer_rates[state]]
+            max_cust = max(customer_rates[state])
 
-        server_rates[state] = [max(x, min_serv) for x in server_rates[state]]
-        min_serv = min(server_rates[state])
-    
-    min_cust = min(customer_rates[-1])
-    max_serv = max(server_rates[-1])
+            server_rates[state] = [max(x, min_serv) for x in server_rates[state]]
+            min_serv = min(server_rates[state])
+        
+        min_cust = min(customer_rates[-1])
+        max_serv = max(server_rates[-1])
 
-    for state in range(model_bounds.n_states-1, -1, -1):
-        customer_rates[state] = [max(x, min_cust) for x in customer_rates[state]]
-        min_cust = min(customer_rates[state])
+        for state in range(model_bounds.n_states-1, -1, -1):
+            customer_rates[state] = [max(x, min_cust) for x in customer_rates[state]]
+            min_cust = min(customer_rates[state])
 
-        server_rates[state] = [min(x, max_serv) for x in server_rates[state]]
-        max_serv = max(server_rates[state])
-    
+            server_rates[state] = [min(x, max_serv) for x in server_rates[state]]
+            max_serv = max(server_rates[state])
 
     # do the reward estimates
     holding_rewards = [parameter_estimator.holding_reward_bounds(state_idx, confidence_param)[1] for state_idx in range(model_bounds.n_states)]

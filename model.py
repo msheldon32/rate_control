@@ -156,6 +156,7 @@ class Model:
         cust_rate = self.customer_levels[0][policy_.get_action_idx(0)[0]]
         bias_diff.append((gain - mean_rewards[0])/cust_rate)
 
+
         # find the bias via forward induction
         for state_idx in range(1, self.n_states-1):
             cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
@@ -163,38 +164,40 @@ class Model:
 
             if cust_rate == 0:
                 # this will be added in the backward pass
+                raise Exception("this should not happen")
                 bias_diff.append(None)
                 continue
 
             bd = (serv_rate/cust_rate)*bias_diff[-1] + (gain - mean_rewards[state_idx])/cust_rate
             bias_diff.append(bd)
 
-        """for state_idx in range(self.n_states-1, -1, -1):
-            # backward pass to fill in missing entries. Mu must be positive
+        serv_rate = self.server_levels[-1][policy_.get_action_idx(self.n_states-1)[1]]
+        bias_diff[-1] = (mean_rewards[-1] - gain)/serv_rate
+
+        for state_idx in range(self.n_states-2, (self.n_states)//2, -1):
+            # backward pass to fix numerical blowup from the first.
             cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
             serv_rate = self.server_levels[state_idx][policy_.get_action_idx(state_idx)[1]]
 
-            if cust_rate != 0 and state_idx < self.n_states-1:
+            if serv_rate == 0:
                 break
 
-            bias_diff[state_idx-1] = (mean_rewards[state_idx] - gain)/serv_rate"""
-        if gain < 4 and random.random() < 0.1:
-            print(f"gain: {gain}")
-            print(f"unnorm dist: {distribution}")
-            print(f"distribution: {[x/norm for x in distribution]}")
-            print(f"bias_diff: {bias_diff}")
-            print("customer levels:")
-            print([self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]] for state_idx in range(self.n_states)])
-            print("server levels")
-            print([self.server_levels[state_idx][policy_.get_action_idx(state_idx)[1]] for state_idx in range(self.n_states)])
-            print("customer rewards")
-            print([self.rewards.customer_rewards[state_idx][policy_.get_action_idx(state_idx)[0]] for state_idx in range(self.n_states)])
-            print("server rewards")
-            print([self.rewards.server_rewards[state_idx][policy_.get_action_idx(state_idx)[0]] for state_idx in range(self.n_states)])
-            print("holding_rewards")
-            print(self.rewards.holding_rewards)
-            print(mean_rewards)
-            raise Exception("stop")
+            bias_diff[state_idx-1] = (cust_rate/serv_rate)*bias_diff[state_idx] + (mean_rewards[state_idx]-gain)/serv_rate
+
+        for state_idx in range(self.n_states-1):
+            min_cr = min(self.customer_levels[state_idx])
+            min_crn = min(self.customer_levels[state_idx+1])
+            assert min_crn <= min_cr
+            max_cr = max(self.customer_levels[state_idx])
+            max_crn = max(self.customer_levels[state_idx+1])
+            assert max_crn <= max_cr
+            min_sr = min(self.server_levels[state_idx])
+            min_srn = min(self.server_levels[state_idx+1])
+            assert min_srn >= min_sr
+            max_sr = max(self.server_levels[state_idx])
+            max_srn = max(self.server_levels[state_idx+1])
+            assert max_srn >= max_sr
+        #print(f"total bias: {sum(bias_diff)}")
         # transform relative bias into absolute bias
         bias = [0]
 
@@ -206,6 +209,8 @@ class Model:
         #for p, h in zip(distribution, bias):
         #    bnorm += p * h
         #bias = [h - bnorm for h in bias]
+
+        #print(f"bias: {bias}")
         
         return gain, bias
 
@@ -219,8 +224,28 @@ class Model:
         for state_idx in range(self.n_states):
             #max_bias = float("-inf")
             #argmax = 0
-            max_bias = bias[state_idx]
+            #max_bias = bias[state_idx]
             argmax = policy_.get_action_idx(state_idx)
+
+            cust_reward = self.rewards.customer_rewards[state_idx][argmax[0]]
+            serv_reward = self.rewards.server_rewards[state_idx][argmax[1]]
+            cust_rate = self.customer_levels[state_idx][argmax[0]]
+            serv_rate = self.server_levels[state_idx][argmax[1]]
+            bias_nom = 0
+            total_rate = 0
+            if cust_rate > 0:
+                bias_nom += cust_rate * bias[state_idx+1]
+                total_rate += cust_rate
+            if serv_rate > 0:
+                bias_nom += serv_rate * bias[state_idx-1]
+                total_rate += serv_rate
+
+            bias_nom += self.get_state_reward(state_idx, argmax)
+            bias_nom -= gain
+
+            max_bias = bias_nom/total_rate
+
+
             for cust_level, cust_rate in enumerate(self.customer_levels[state_idx]):
                 cust_reward = self.rewards.customer_rewards[state_idx][cust_level]
 
@@ -240,16 +265,19 @@ class Model:
                     bias_nom += self.get_state_reward(state_idx, (cust_level, serv_level))
                     bias_nom -= gain
 
-                    if (bias_nom/total_rate) > max_bias:
+                    if (bias_nom/total_rate) > max_bias + 1e-2:
                         max_bias = bias_nom/total_rate
                         argmax = (cust_level, serv_level)
+                #if state_idx >= self.n_states-2:
+                #    print(f"({state_idx}) old mapping: {policy_.get_action_idx(state_idx)}, new mapping: {argmax}")
+                #    print(f"({state_idx}) old bias: {bias[state_idx]}, new bias: {max_bias}")
             new_mapping.append(argmax)
             if argmax != policy_.get_action_idx(state_idx):
                 changed = True
 
         return policy.Policy(new_mapping, self.capacities), gain, changed
 
-    def get_optimal_policy(self, original_policy=None, n_iterations=1000):
+    def get_optimal_policy(self, original_policy=None, n_iterations=500):
         default_mapping = [(0,0) for i in range(self.n_states)]
         if not original_policy:
             new_policy = policy.Policy(default_mapping, self.capacities)
@@ -261,6 +289,7 @@ class Model:
             if not changed:
                 break
         gain, bias = self.evaluate_policy(new_policy)
+        #input("continue?")
         return new_policy, gain
 
     def print_rates(self):

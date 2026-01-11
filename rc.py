@@ -61,7 +61,7 @@ class ParameterEstimator:
         else:
             point_estimate = self.cum_serv_rewards[state][level]/ct
 
-        epsilon = math.sqrt((math.log((self.model_bounds.n_states*self.level_ct)/confidence_param))/(2*max(1,ct)))
+        epsilon = math.sqrt((math.log((self.model_bounds.n_states*(self.level_ct+1))/confidence_param))/(2*max(1,ct)))
 
         return [max(-1, point_estimate-epsilon), min(1, point_estimate+epsilon)]
     
@@ -72,7 +72,7 @@ class ParameterEstimator:
             return [-1, 1]
         point_estimate = self.cum_h_reward[state]/ct
 
-        epsilon = math.sqrt((math.log((self.model_bounds.n_states*self.level_ct)/confidence_param))/(2*max(1,ct)))
+        epsilon = math.sqrt((math.log((self.model_bounds.n_states*(self.level_ct+1))/confidence_param))/(2*max(1,ct)))
 
         return [max(-1, point_estimate-epsilon), min(1, point_estimate+epsilon)]
 
@@ -87,7 +87,7 @@ class ParameterEstimator:
         times = self.positive_sojourn_times[state][level] if is_positive else self.negative_sojourn_times[state][level]
 
         for i, stime in enumerate(times):
-            truncation = math.sqrt(2*(i+1)/(math.pow(min_rate,2)*max(math.log((self.model_bounds.n_states*self.level_ct)/confidence_param),0.00001)))
+            truncation = math.sqrt(2*(i+1)/(math.pow(min_rate,2)*max(math.log((self.model_bounds.n_states*(self.level_ct+1))/confidence_param),0.00001)))
             if stime <= truncation:
                 acc += stime
         return acc/ct
@@ -97,7 +97,7 @@ class ParameterEstimator:
         if ct == 0:
             return float("inf")
 
-        inner_term = (2/max(1, ct))*max(math.log((self.model_bounds.n_states*self.level_ct)/confidence_param),0.00001)
+        inner_term = (2/max(1, ct))*max(math.log((self.model_bounds.n_states*(self.level_ct+1))/confidence_param),0.00001)
 
         min_rate = self.model_bounds.rate_lb
 
