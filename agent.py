@@ -115,6 +115,11 @@ class LearnersAgent(Agent):
         return reward
     
     def observe(self, time, state, action, holding_r, trans_r, sojourn_time, transition):
+        if time < self.time:
+            # you can't do anything about this but it's a rare case where you have multiple events during
+            #    one uniformization window, so here we will just forget it happened.
+            return
+
         # redo the sojourn time to better match uniformization
         prev_time = self.time
         while self.time < time:
