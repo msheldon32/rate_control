@@ -3,8 +3,13 @@ import agent
 import observer
 import simulator
 
+from learners.UCRL2 import UCRL2
+from learners.UCRL3 import UCRL3
+from learners.KL_UCRL import KL_UCRL
+
 import pickle
 import numpy as np
+import traceback
 
 class ExperimentRun:
     def __init__(self, model_, model_bounds, rng, max_step_count):
@@ -15,35 +20,46 @@ class ExperimentRun:
 
         self.optimal_policy, self.max_gain = self.model.get_optimal_policy()
 
-        self.agent = agent.RC_Agent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], model_bounds, rng, False)
+        self.baseline_learners = {
+            "KL": KL_UCRL(self.model_bounds.n_states, self.model_bounds.n_actions, 0.05),
+            "UCRL2": UCRL2(self.model_bounds.n_states, self.model_bounds.n_actions, 0.05),
+            "UCRL3": UCRL3(self.model_bounds.n_states, self.model_bounds.n_actions, 0.05),
+                }
         self.ablation_agent = agent.RC_Agent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], model_bounds, rng, True)
 
-        self.agent_observer = observer.Observer()
-        self.ablation_observer = observer.Observer()
-
-        self.agent_sim = simulator.Simulator(model_, self.agent, self.agent_observer, self.rng)
-        self.ablation_sim = simulator.Simulator(model_, self.ablation_agent, self.ablation_observer, self.rng)
-
+        self.agents = {
+                baseline: agent.LearnersAgent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], 0.01, learner, model_bounds, rng) 
+                    for baseline, learner in self.baseline_learners.items()
+                }
+        
+        self.observers = {
+                baseline: observer.Observer() for baseline in self.baseline_learners.keys()
+                }
+        
+        self.simulators = {
+                baseline: simulator.Simulator(model_, agent, self.observers[baseline], self.rng)
+                    for baseline, agent in self.agents.items()
+                }
 
         _, self.ideal_gain = self.model.get_optimal_policy(n_iterations=10000)
 
     def run(self, verbose=False):
         for i in range(self.max_step_count):
-            self.agent_sim.step()
-            self.ablation_sim.step()
+            for sim in self.simulators.values():
+                sim.step()
 
             if verbose and i > 0 and i % 10000 == 0:
                 print(f"After {i} steps")
-                print(f"Trailing gain (rc): ", self.agent_observer.trailing_gain(10000))
-                print(f"Trailing gain (ablation): ", self.ablation_observer.trailing_gain(10000))
+                for k, v in self.observers.items():
+                    print(f"Trailing gain ({k}): ", v.trailing_gain(10000))
                 print(f"Ideal gain: ", self.ideal_gain)
 
     def summarize(self, timestep=10000):
         return {
-            "rc": self.agent_observer.summarize(self.ideal_gain, timestep),
-            "ablation": self.ablation_observer.summarize(self.ideal_gain, timestep),
             "ideal_gain": self.ideal_gain
-                }
+                } + {
+            k: v.summarize() for k, v in self.observers.items()
+            }
 
 
 class Experiment:
@@ -66,8 +82,9 @@ class Experiment:
                 run.run(verbose=True)
             except Exception as e:
                 print(f"Run {run_no} failed, skipping...")
+                traceback.print_exc()
                 continue
-            with open(f"exp_out/{self.model_bounds.n_states}_states/run_{run_no}", "wb") as f:
+            with open(f"exp_out/{self.model_bounds.n_states}_states/baselines_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
 if __name__ == "__main__":
@@ -75,7 +92,7 @@ if __name__ == "__main__":
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
     cap = 5
-    model_bounds = model.ModelBounds((25,25),(3,3), 1, 5)
-    exp = Experiment(model_bounds, 10000000, starting_seed = 3000, starting_no=0, ending_no=50)
+    model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
+    exp = Experiment(model_bounds, 10000000, starting_seed = 1000, starting_no=0, ending_no=50)
 
     exp.run()

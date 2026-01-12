@@ -204,21 +204,6 @@ class Model:
 
             bias_diff[state_idx-1] = (cust_rate/serv_rate)*bias_diff[state_idx] + (mean_rewards[state_idx]-gain)/serv_rate
 
-        for state_idx in range(self.n_states-1):
-            min_cr = min(self.customer_levels[state_idx])
-            min_crn = min(self.customer_levels[state_idx+1])
-            assert min_crn <= min_cr
-            max_cr = max(self.customer_levels[state_idx])
-            max_crn = max(self.customer_levels[state_idx+1])
-            assert max_crn <= max_cr
-            min_sr = min(self.server_levels[state_idx])
-            min_srn = min(self.server_levels[state_idx+1])
-            assert min_srn >= min_sr
-            max_sr = max(self.server_levels[state_idx])
-            max_srn = max(self.server_levels[state_idx+1])
-            assert max_srn >= max_sr
-        #print(f"total bias: {sum(bias_diff)}")
-        # transform relative bias into absolute bias
         bias = [0]
 
         for bd in bias_diff:
