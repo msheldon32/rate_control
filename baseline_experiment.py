@@ -10,6 +10,7 @@ from learners.KL_UCRL import KL_UCRL
 import pickle
 import numpy as np
 import traceback
+import sys
 
 class ExperimentRun:
     def __init__(self, model_, model_bounds, rng, max_step_count):
@@ -48,6 +49,9 @@ class ExperimentRun:
             for sim in self.simulators.values():
                 sim.step()
 
+            if i % 1000 == 0:
+                print(f"{i} steps")
+
             if verbose and i > 0 and i % 10000 == 0:
                 print(f"After {i} steps")
                 for k, v in self.observers.items():
@@ -78,21 +82,28 @@ class Experiment:
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
-            try:
+            run.run(verbose=True)
+            """try:
                 run.run(verbose=True)
             except Exception as e:
                 print(f"Run {run_no} failed, skipping...")
                 traceback.print_exc()
-                continue
-            with open(f"exp_out/{self.model_bounds.n_states}_states/baselines_{run_no}", "wb") as f:
+                continue"""
+            with open(f"exp_out/{self.model_bounds.n_states}_states/no_ucrl3_baselines_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
 if __name__ == "__main__":
     # seed 1000: (3,3), (5,5)
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
-    cap = 5
-    model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
-    exp = Experiment(model_bounds, 10000000, starting_seed = 1000, starting_no=0, ending_no=50)
+    bounds = {
+        1: ((5,5),1000),
+        2: ((10,10),2000),
+        3: ((25,25),3000),
+            }
+    
+    capacities, seed = bounds[int(sys.argv[1])]
+    model_bounds = model.ModelBounds(capacities,(3,3), 1, 5)
+    exp = Experiment(model_bounds, 10000000, starting_seed = seed, starting_no=0, ending_no=50)
 
     exp.run()

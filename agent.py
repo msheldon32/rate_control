@@ -91,6 +91,8 @@ class LearnersAgent(Agent):
 
         self.reward_norm = 5
 
+        self.time = 0
+
     def get_action_from_idx(self, action_idx):
         cust_level = action_idx // self.model_bounds.n_levels[1]
         serv_level = action_idx %  self.model_bounds.n_levels[1]
@@ -113,6 +115,13 @@ class LearnersAgent(Agent):
         return reward
     
     def observe(self, time, state, action, holding_r, trans_r, sojourn_time, transition):
+        # redo the sojourn time to better match uniformization
+        prev_time = self.time
+        while self.time < time:
+            self.time += self.uni_constant
+
+        sojourn_time = self.time - prev_time
+
         n_next_transitions = 1
         n_self_transitions = max(round(sojourn_time/self.uni_constant)-1,0)
 
