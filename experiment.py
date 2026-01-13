@@ -92,7 +92,7 @@ class PathExperiment:
             with open(f"exp_out/path_{self.model_bounds.n_states}_states/run_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
-if __name__ == "__main__":
+def validation_experiment():
     # seed 1000: (3,3), (5,5)
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
@@ -101,3 +101,16 @@ if __name__ == "__main__":
     exp = Experiment(model_bounds, 10000000, starting_seed = 3000, starting_no=0, ending_no=50)
 
     exp.run()
+
+def path_experiment():
+    # seed 10,000
+
+    # bounds: (10,0), (20,0), (50,0)
+    cap_list = [(10,0), (20,0), (50,0)]
+
+    exp = PathExperiment(10000000, cap_list, starting_seed=10000)
+
+    exp.run()
+
+if __name__ == "__main__":
+    path_experiment()
