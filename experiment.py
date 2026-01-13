@@ -81,7 +81,7 @@ class PathExperiment:
         for cap_no, cap in enumerate(self.cap_list):
             rng = np.random.default_rng(seed=(self.starting_seed + cap_no))
             for run_no in range(self.n_runs):
-                model_bounds = model.ModelBounds(cap, (2,1), 1, 10, 10, 6)
+                model_bounds = model.ModelBounds(cap, (2,1), 1, 5, 5, 3)
                 model_ = model.generate_path_model(model_bounds, rng)
 
                 run = ExperimentRun(model_, model_bounds, rng, self.max_step_count, rand_rew=False)
@@ -108,8 +108,8 @@ def path_experiment():
     # seed 10,000
 
     # bounds: (10,0), (20,0), (50,0)
-    #cap_list = [(10,0), (20,0), (50,0)]
-    cap_list = [(50,0)]
+    cap_list = [(10,0), (20,0), (50,0)]
+    #cap_list = [(50,0)]
 
     exp = PathExperiment(10000000, cap_list, 50, starting_seed=10000)
 

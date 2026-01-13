@@ -246,7 +246,6 @@ class Model:
                 acc_diff += (acc_pd)*(mean_rewards[att_state] - gain)
             cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
             bias_diff.append(acc_diff/cust_rate)
-                
 
 
         bias = [0]
@@ -445,9 +444,9 @@ def generate_path_model(model_bounds, rng : np.random._generator.Generator):
 
     n_states = sum(capacities)+1
 
-    customer_levels = [[4,2] for i in range(n_states)]
+    customer_levels = [[2,1] for i in range(n_states)]
     customer_levels[-1] = [0,0]
-    server_levels = [[5] for i in range(n_states)]
+    server_levels = [[3] for i in range(n_states)]
     server_levels[0] = [0]
 
     customer_rewards = [[0,1] for i in range(n_states)]
