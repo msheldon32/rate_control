@@ -108,7 +108,8 @@ def path_experiment():
     # seed 10,000
 
     # bounds: (10,0), (20,0), (50,0)
-    cap_list = [(10,0), (20,0), (50,0)]
+    #cap_list = [(10,0), (20,0), (50,0)]
+    cap_list = [(50,0)]
 
     exp = PathExperiment(10000000, cap_list, 50, starting_seed=10000)
 

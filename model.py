@@ -195,12 +195,12 @@ class Model:
         bias_diff = []
         bias_acc = 0
 
+
+        """
+        # find the bias via forward induction
         # start with the base case, i.e. the lowest state. Lambda must be positive here (except in the trivial case)
         cust_rate = self.customer_levels[0][policy_.get_action_idx(0)[0]]
         bias_diff.append((gain - mean_rewards[0])/cust_rate)
-
-
-        # find the bias via forward induction
         for state_idx in range(1, self.n_states-1):
             cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
             serv_rate = self.server_levels[state_idx][policy_.get_action_idx(state_idx)[1]]
@@ -226,6 +226,28 @@ class Model:
                 break
 
             bias_diff[state_idx-1] = (cust_rate/serv_rate)*bias_diff[state_idx] + (mean_rewards[state_idx]-gain)/serv_rate
+        """
+
+        # find the bias using the time-reversed equation
+        for state_idx in range(self.n_states-1):
+            acc_pd = 1
+            acc_diff = 0
+            for att_state in range(state_idx+1, self.n_states):
+                cust_rate = self.customer_levels[att_state-1][policy_.get_action_idx(att_state-1)[0]]
+                serv_rate = self.server_levels[att_state][policy_.get_action_idx(att_state)[1]]
+
+                if serv_rate == 0:
+                    continue
+
+                if cust_rate == 0:
+                    break
+
+                acc_pd *= (cust_rate/serv_rate)
+                acc_diff += (acc_pd)*(mean_rewards[att_state] - gain)
+            cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
+            bias_diff.append(acc_diff/cust_rate)
+                
+
 
         bias = [0]
 
