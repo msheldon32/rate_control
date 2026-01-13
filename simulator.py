@@ -7,7 +7,7 @@ from learners.KL_UCRL import KL_UCRL
 import numpy as np
 
 class Simulator:
-    def __init__(self, model, agent, observer, rng : np.random._generator.Generator):
+    def __init__(self, model, agent, observer, rng : np.random._generator.Generator, rand_rew = True):
         self.model = model
         self.agent = agent
         self.observer = observer
@@ -16,6 +16,8 @@ class Simulator:
 
         self.state = 0
         self.t = 0
+
+        self.rand_rew = rand_rew
 
 
     def step(self):
@@ -29,9 +31,13 @@ class Simulator:
         sojourn_time = self.rng.exponential(scale = 1/total_rate)
 
         step = self.rng.choice([-1,1], p=[server_rate/total_rate, customer_rate/total_rate])
-
-        holding_reward = self.model.generate_holding_reward(self.state)
-        transition_reward = self.model.generate_transition_reward(self.state, action, step)
+        
+        if self.rand_rew:
+            holding_reward = self.model.generate_holding_reward(self.state)
+            transition_reward = self.model.generate_transition_reward(self.state, action, step)
+        else:
+            holding_reward = self.model.get_holding_reward(self.state)
+            transition_reward = self.model.get_transition_reward(self.state, action, step)
 
         total_reward = holding_reward*sojourn_time + transition_reward
 

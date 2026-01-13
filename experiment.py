@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 
 class ExperimentRun:
-    def __init__(self, model_, model_bounds, rng, max_step_count):
+    def __init__(self, model_, model_bounds, rng, max_step_count, rand_rew=True):
         self.model = model_
         self.model_bounds = model_bounds
         self.rng = rng
@@ -21,8 +21,8 @@ class ExperimentRun:
         self.agent_observer = observer.Observer()
         self.ablation_observer = observer.Observer()
 
-        self.agent_sim = simulator.Simulator(model_, self.agent, self.agent_observer, self.rng)
-        self.ablation_sim = simulator.Simulator(model_, self.ablation_agent, self.ablation_observer, self.rng)
+        self.agent_sim = simulator.Simulator(model_, self.agent, self.agent_observer, self.rng, rand_rew=rand_rew)
+        self.ablation_sim = simulator.Simulator(model_, self.ablation_agent, self.ablation_observer, self.rng, rand_rew=rand_rew)
 
 
         _, self.ideal_gain = self.model.get_optimal_policy(n_iterations=10000)
@@ -71,26 +71,28 @@ class Experiment:
                 pickle.dump(run.summarize(), f)
 
 class PathExperiment:
-    def __init__(self, max_step_count, cap_list, starting_seed=0):
+    def __init__(self, max_step_count, cap_list, n_runs, starting_seed=0):
         self.max_step_count = max_step_count
         self.cap_list = cap_list
         self.starting_seed = starting_seed
+        self.n_runs = n_runs
 
     def run(self):
         for cap_no, cap in enumerate(self.cap_list):
             rng = np.random.default_rng(seed=(self.starting_seed + cap_no))
-            model_bounds = model.ModelBounds(cap, (2,1), 1, 10, 10, 6)
-            model_ = model.generate_path_model(model_bounds, rng)
+            for run_no in range(self.n_runs):
+                model_bounds = model.ModelBounds(cap, (2,1), 1, 10, 10, 6)
+                model_ = model.generate_path_model(model_bounds, rng)
 
-            run = ExperimentRun(model_, model_bounds, rng, self.max_step_count)
-            #def __init__(self, model_, model_bounds, rng, max_step_count):
-            try:
-                run.run(verbose=True)
-            except Exception as e:
-                print(f"Run {run_no} failed, skipping...")
-                continue
-            with open(f"exp_out/path_{model_bounds.n_states}_states/run_{cap_no}", "wb") as f:
-                pickle.dump(run.summarize(), f)
+                run = ExperimentRun(model_, model_bounds, rng, self.max_step_count, rand_rew=False)
+                #def __init__(self, model_, model_bounds, rng, max_step_count):
+                try:
+                    run.run(verbose=True)
+                except Exception as e:
+                    print(f"Run {run_no} failed, skipping...")
+                    continue
+                with open(f"exp_out/path_{model_bounds.n_states}_states/run_{run_no}", "wb") as f:
+                    pickle.dump(run.summarize(), f)
 
 def validation_experiment():
     # seed 1000: (3,3), (5,5)
@@ -108,7 +110,7 @@ def path_experiment():
     # bounds: (10,0), (20,0), (50,0)
     cap_list = [(10,0), (20,0), (50,0)]
 
-    exp = PathExperiment(10000000, cap_list, starting_seed=10000)
+    exp = PathExperiment(10000000, cap_list, 50, starting_seed=10000)
 
     exp.run()
 

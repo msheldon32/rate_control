@@ -155,9 +155,9 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
 
 
 if __name__ == "__main__":
-    analyze("exp_out/11_states/", 12, True, False, True, "viz/11_states.pdf")
-    analyze("exp_out/21_states/", 6, True, False, True, "viz/21_states.pdf")
-    analyze("exp_out/51_states/", 3, True, False, True, "viz/51_states.pdf")
+    analyze("exp_out/path_11_states/", 1, False, False, True, "viz/11_states.pdf")
+    analyze("exp_out/path_21_states/", 1, False, False, True, "viz/21_states.pdf")
+    #analyze("exp_out/51_states/", 3, True, False, True, "viz/51_states.pdf")
     lines = [
         plt.Line2D([0], [0], color="C0", lw=2, label="UCRL-TSAC"),
         plt.Line2D([0], [0], color="C1", lw=2, label="Ablation"),

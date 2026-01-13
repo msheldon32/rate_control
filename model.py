@@ -96,9 +96,22 @@ class Model:
         else:
             raise Exception("Invalid transition")
     
+    def get_transition_reward(self, state, action, transition):
+        state_idx = self.get_state_idx(state)
+        if transition == -1:
+            return self.rewards.server_rewards[state_idx][action[1]]
+        elif transition == 1:
+            return self.rewards.customer_rewards[state_idx][action[0]]
+        else:
+            raise Exception("Invalid transition")
+    
     def generate_holding_reward(self, state):
         state_idx = self.get_state_idx(state)
         return self.rewards.generate_holding_reward(state_idx, self.rng)
+    
+    def get_holding_reward(self, state):
+        state_idx = self.get_state_idx(state)
+        return self.rewards.holding_rewards[state_idx]
     
     
     def get_state_reward(self, state_idx, action):
@@ -415,7 +428,7 @@ def generate_path_model(model_bounds, rng : np.random._generator.Generator):
     server_levels = [[5] for i in range(n_states)]
     server_levels[0] = [0]
 
-    customer_rewards = [[0,0.5] for i in range(n_states)]
+    customer_rewards = [[0,1] for i in range(n_states)]
     server_rewards = [[0] for i in range(n_states)]
     holding_rewards = [0 for i in range(n_states)]
     rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
