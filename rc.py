@@ -105,7 +105,11 @@ class ParameterEstimator:
     
     def get_naive_rate_bounds(self, state, level, is_positive):
         lbound = self.model_bounds.rate_lb
-        rbound = self.model_bounds.rate_ub
+
+        if is_positive:
+            rbound = self.model_bounds.customer_ub
+        else:
+            rbound = self.model_bounds.server_ub
 
         return [lbound, rbound]
 

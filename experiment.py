@@ -70,6 +70,28 @@ class Experiment:
             with open(f"exp_out/{self.model_bounds.n_states}_states/run_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
+class PathExperiment:
+    def __init__(self, max_step_count, cap_list, starting_seed=0):
+        self.max_step_count = max_step_count
+        self.cap_list = cap_list
+        self.starting_seed = starting_seed
+
+    def run(self):
+        for cap_no, cap in enumerate(self.cap_list):
+            rng = np.random.default_rng(seed=(self.starting_seed + run_no))
+            model_bounds = model.ModelBounds(cap, (2,1), 1, 10, 10, 6)
+            model_ = model.generate_path_model(model_bounds, rng)
+
+            run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
+            #def __init__(self, model_, model_bounds, rng, max_step_count):
+            try:
+                run.run(verbose=True)
+            except Exception as e:
+                print(f"Run {run_no} failed, skipping...")
+                continue
+            with open(f"exp_out/path_{self.model_bounds.n_states}_states/run_{run_no}", "wb") as f:
+                pickle.dump(run.summarize(), f)
+
 if __name__ == "__main__":
     # seed 1000: (3,3), (5,5)
     # seed 2000: (3,3), (10,10)

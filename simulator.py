@@ -44,8 +44,10 @@ class Simulator:
 
 if __name__ == "__main__":
     rng = np.random.default_rng()
-    model_bounds = model.ModelBounds((25,25), (3,3), 1, 5)
-    model = model.generate_random_model(model_bounds, rng)
+    model_bounds = model.ModelBounds((20,0), (2,1), 1, 5, 10, 6)
+    #model = model.generate_random_model(model_bounds, rng)
+    model = model.generate_path_model(model_bounds, rng)
+
     model.print_rates()
     model.print_rewards()
 
@@ -53,26 +55,33 @@ if __name__ == "__main__":
     input("continue...")
     
 
-    optimal_agent = agent.PolicyAgent((25,25), 3,3, policy, rng)
-    rc_agent = agent.RC_Agent((25,25),3,3, model_bounds, rng)
-    kl_ucrl = KL_UCRL(model_bounds.n_states, model_bounds.n_actions, 0.05)
-    kl_agent = agent.LearnersAgent((25,25), 3, 3, 1/2, kl_ucrl, model_bounds, rng)
+    optimal_agent = agent.PolicyAgent((20,0), 2,1, policy, rng)
+    rc_agent = agent.RC_Agent((20,0),2,1, model_bounds, rng)
+    abl_agent = agent.RC_Agent((20,0),2,1, model_bounds, rng, True)
+    #kl_ucrl = KL_UCRL(model_bounds.n_states, model_bounds.n_actions, 0.05)
+    #kl_agent = agent.LearnersAgent((25,25), 3, 3, 1/2, kl_ucrl, model_bounds, rng)
 
     optimal_observer = observer.Observer()
     rc_observer = observer.Observer()
-    kl_observer = observer.Observer()
+    abl_observer = observer.Observer()
+    #kl_observer = observer.Observer()
 
     sim = Simulator(model, optimal_agent, optimal_observer, rng)
     rc_sim = Simulator(model, rc_agent, rc_observer, rng)
-    kl_sim = Simulator(model, kl_agent, kl_observer, rng)
+    abl_sim = Simulator(model, abl_agent, abl_observer, rng)
+    #kl_sim = Simulator(model, kl_agent, kl_observer, rng)
 
     for i in range(1000000000):
         if i % 1000 == 0 and i != 0:
             print(f"(optimal) trailing gain: {optimal_observer.trailing_gain(1000)}")
             print(f"(rc) trailing gain: {rc_observer.trailing_gain(1000)}")
+            print(f"(abl) trailing gain: {abl_observer.trailing_gain(1000)}")
+            print(f"(rc) total reward: {rc_observer.total_reward}")
+            print(f"(abl) total reward: {abl_observer.total_reward}")
             #print(f"(kl) trailing gain: {kl_observer.trailing_gain(1000)}")
         sim.step()
         rc_sim.step()
+        abl_sim.step()
         #kl_sim.step()
 
     print(f"empirical gain: {optimal_observer.empirical_gain()}")

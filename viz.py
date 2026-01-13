@@ -14,24 +14,24 @@ ALPHA = 1.0
 def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, output_file=None):
     avg_regret = None
     abl_regret = None
-    ucrl_regret = None
-    ucrl2_regret = None
-    ucrl3_regret = None
-    kl_regret = None
+    UCRL_regret = None
+    UCRL2_regret = None
+    UCRL3_regret = None
+    KL_regret = None
 
     avg_time = None
     abl_time = None
-    ucrl_time = None
-    ucrl2_time = None
-    ucrl3_time = None
-    kl_time = None
+    UCRL_time = None
+    UCRL2_time = None
+    UCRL3_time = None
+    KL_time = None
 
     avg_loss = None
     abl_loss = None
-    ucrl_loss = None
-    ucrl2_loss = None
-    ucrl3_loss = None
-    kl_loss = None
+    UCRL_loss = None
+    UCRL2_loss = None
+    UCRL3_loss = None
+    KL_loss = None
 
     for run_no in range(n_runs):
         with open(f"{folder}/run_{run_no}", "rb") as f:
@@ -42,9 +42,9 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
                 with open(baselines_file, "rb") as f:
                     baseline_data = pickle.load(f)
             else:
-                with open(f"{folder}/no_ucrl3_baselines_{run_no}", "rb") as f:
+                with open(f"{folder}/no_UCRL3_baselines_{run_no}", "rb") as f:
                     baseline_data = pickle.load(f)
-                with open(f"{folder}/ucrl3_baselines_{run_no}", "rb") as f:
+                with open(f"{folder}/UCRL3_baselines_{run_no}", "rb") as f:
                     baseline_data |= pickle.load(f)
 
         #print(f"total reward: {run_data['rc']['reward'][-1]}")
@@ -60,17 +60,17 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
         if avg_regret is None:
             avg_regret = [[x] for x in normalize(run_data["rc"]["regret"])]
             abl_regret = [[x] for x in normalize(run_data["ablation"]["regret"])]
-            #ucrl_regret = [[x] for x in normalize(run_data["ucrl"]["regret"])]
+            #UCRL_regret = [[x] for x in normalize(run_data["UCRL"]["regret"])]
             avg_loss = [get_loss(run_data["rc"], run_data["ideal_gain"])]
             abl_loss = [get_loss(run_data["ablation"], run_data["ideal_gain"])]
-            #ucrl_loss = [get_loss(run_data["ucrl"], run_data["ideal_gain"])]
+            #UCRL_loss = [get_loss(run_data["UCRL"], run_data["ideal_gain"])]
             if baselines:
-                ucrl2_regret = [[x] for x in normalize(baseline_data["ucrl2"]["regret"])]
-                ucrl3_regret = [[x] for x in normalize(baseline_data["ucrl3"]["regret"])]
-                kl_regret = [[x] for x in normalize(baseline_data["kl"]["regret"])]
-                ucrl2_loss = [get_loss(baseline_data["ucrl2"])]
-                ucrl3_loss = [get_loss(baseline_data["ucrl3"])]
-                kl_loss = [get_loss(baseline_data["kl"])]
+                UCRL2_regret = [[x] for x in normalize(baseline_data["UCRL2"]["regret"])]
+                UCRL3_regret = [[x] for x in normalize(baseline_data["UCRL3"]["regret"])]
+                KL_regret = [[x] for x in normalize(baseline_data["KL"]["regret"])]
+                UCRL2_loss = [get_loss(baseline_data["UCRL2"], run_data["ideal_gain"])]
+                UCRL3_loss = [get_loss(baseline_data["UCRL3"], run_data["ideal_gain"])]
+                KL_loss = [get_loss(baseline_data["KL"], run_data["ideal_gain"])]
         else:
             for i, x in enumerate(normalize(run_data["rc"]["regret"])):
                 avg_regret[i].append(x)
@@ -79,19 +79,19 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
             avg_loss.append(get_loss(run_data["rc"], run_data["ideal_gain"]))
             abl_loss.append(get_loss(run_data["ablation"], run_data["ideal_gain"]))
             if baselines:
-                for i, x in enumerate(normalize(baseline_data["ucrl2"]["regret"])):
-                    ucrl2_regret[i].append(x)
-                for i, x in enumerate(normalize(baseline_data["ucrl3"]["regret"])):
-                    ucrl3_regret[i].append(x)
-                for i, x in enumerate(normalize(baseline_data["kl"]["regret"])):
-                    kl_regret[i].append(x)
-                ucrl2_loss.append(get_loss(baseline_data["ucrl2"]))
-                ucrl3_loss.append(get_loss(baseline_data["ucrl3"]))
-                kl_loss.append(get_loss(baseline_data["kl"]))
+                for i, x in enumerate(normalize(baseline_data["UCRL2"]["regret"])):
+                    UCRL2_regret[i].append(x)
+                for i, x in enumerate(normalize(baseline_data["UCRL3"]["regret"])):
+                    UCRL3_regret[i].append(x)
+                for i, x in enumerate(normalize(baseline_data["KL"]["regret"])):
+                    KL_regret[i].append(x)
+                UCRL2_loss.append(get_loss(baseline_data["UCRL2"], run_data["ideal_gain"]))
+                UCRL3_loss.append(get_loss(baseline_data["UCRL3"], run_data["ideal_gain"]))
+                KL_loss.append(get_loss(baseline_data["KL"], run_data["ideal_gain"]))
 
         #plt.plot(normalize(run_data["rc"]["regret"]), "b")
         #plt.plot(normalize(run_data["ablation"]["regret"]), "r")
-        #plt.plot(normalize(run_data["ucrl"]["regret"]), "g")
+        #plt.plot(normalize(run_data["UCRL"]["regret"]), "g")
         #plt.show()
     xlabels = [x*10000 for x in range(1000)]
     avg_regret_std = [np.std(x) for x in avg_regret]
@@ -99,24 +99,24 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
     avg_regret = [np.mean(x) for x in avg_regret]
     abl_regret = [np.mean(x) for x in abl_regret]
     if baselines:
-        ucrl3_regret_std = [np.std(x) for x in ucrl3_regret]
-        ucrl2_regret_std = [np.std(x) for x in ucrl2_regret]
-        kl_regret_std = [np.std(x) for x in kl_regret]
-        ucrl3_regret = [np.mean(x) for x in ucrl3_regret]
-        ucrl2_regret = [np.mean(x) for x in ucrl2_regret]
-        kl_regret = [np.mean(x) for x in kl_regret]
+        UCRL3_regret_std = [np.std(x) for x in UCRL3_regret]
+        UCRL2_regret_std = [np.std(x) for x in UCRL2_regret]
+        KL_regret_std = [np.std(x) for x in KL_regret]
+        UCRL3_regret = [np.mean(x) for x in UCRL3_regret]
+        UCRL2_regret = [np.mean(x) for x in UCRL2_regret]
+        KL_regret = [np.mean(x) for x in KL_regret]
     plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH, alpha=ALPHA)
     line, = plt.plot(xlabels,abl_regret,"C1", label="Ablation", linewidth=LINEWIDTH, alpha=ALPHA)
     plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH/2, alpha=ALPHA)
     #plt.fill_between(xlabels,np.array(avg_regret)-np.array(avg_regret_std),(np.array(avg_regret)+np.array(avg_regret_std)), alpha=0.1, color="b")
     #plt.fill_between(xlabels,np.array(abl_regret)-np.array(abl_regret_std),(np.array(abl_regret)+np.array(abl_regret_std)), alpha=0.1, color="r")
     if baselines:
-        plt.plot(xlabels,kl_regret,"C2", label="KL_UCRL", linewidth=LINEWIDTH, alpha=ALPHA)
-        #plt.fill_between(xlabels,np.array(kl_regret)-np.array(kl_regret_std),(np.array(kl_regret)+np.array(kl_regret_std)), alpha=0.1, color="g")
-        plt.plot(xlabels,ucrl2_regret,"C3", label="UCRL2", linewidth=LINEWIDTH, alpha=ALPHA)
-        #plt.fill_between(xlabels,np.array(ucrl2_regret)-np.array(ucrl2_regret_std),(np.array(ucrl2_regret)+np.array(ucrl2_regret_std)), alpha=0.1, color="orange")
-        plt.plot(xlabels,ucrl3_regret,"C4", label="UCRL3", linewidth=LINEWIDTH, alpha=ALPHA)
-        #plt.fill_between(xlabels,np.array(ucrl3_regret)-np.array(ucrl3_regret_std),(np.array(ucrl3_regret)+np.array(ucrl3_regret_std)), alpha=0.1, color="pink")
+        plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linewidth=LINEWIDTH, alpha=ALPHA)
+        #plt.fill_between(xlabels,np.array(KL_regret)-np.array(KL_regret_std),(np.array(KL_regret)+np.array(KL_regret_std)), alpha=0.1, color="g")
+        plt.plot(xlabels,UCRL2_regret,"C3", label="UCRL2", linewidth=LINEWIDTH, alpha=ALPHA)
+        #plt.fill_between(xlabels,np.array(UCRL2_regret)-np.array(UCRL2_regret_std),(np.array(UCRL2_regret)+np.array(UCRL2_regret_std)), alpha=0.1, color="orange")
+        plt.plot(xlabels,UCRL3_regret,"C4", label="UCRL3", linewidth=LINEWIDTH, alpha=ALPHA)
+        #plt.fill_between(xlabels,np.array(UCRL3_regret)-np.array(UCRL3_regret_std),(np.array(UCRL3_regret)+np.array(UCRL3_regret_std)), alpha=0.1, color="pink")
     if log:
         plt.yscale("log")
         plt.ylim(bottom=100, top=1700000)
@@ -144,20 +144,20 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
     print("Total regret: ", avg_regret[-1])
     print("Total regret (ablation): ", abl_regret[-1])
     if baselines:
-        print("Total regret (ucrl2): ", ucrl2_regret[-1])
+        print("Total regret (UCRL2): ", UCRL2_regret[-1])
     
     print("Reward ratio (rc): ", np.mean(avg_loss))
     print("Reward ratio (ablation): ", np.mean(abl_loss))
     if baselines:
-        print("Reward ratio (ucrl2): ", np.mean(ucrl2_loss))
-        print("Reward ratio (ucrl3): ", np.mean(ucrl3_loss))
-        print("Reward ratio (kl): ", np.mean(kl_loss))
+        print("Reward ratio (UCRL2): ", np.mean(UCRL2_loss))
+        print("Reward ratio (UCRL3): ", np.mean(UCRL3_loss))
+        print("Reward ratio (KL): ", np.mean(KL_loss))
 
 
 if __name__ == "__main__":
-    analyze("exp_out/11_states/", 50, False, False, True, "viz/11_states.pdf")
-    analyze("exp_out/21_states/", 50, False, False, True, "viz/21_states.pdf")
-    analyze("exp_out/51_states/", 49, False, False, True, "viz/51_states.pdf")
+    analyze("exp_out/11_states/", 12, True, False, True, "viz/11_states.pdf")
+    analyze("exp_out/21_states/", 6, True, False, True, "viz/21_states.pdf")
+    analyze("exp_out/51_states/", 3, True, False, True, "viz/51_states.pdf")
     lines = [
         plt.Line2D([0], [0], color="C0", lw=2, label="UCRL-TSAC"),
         plt.Line2D([0], [0], color="C1", lw=2, label="Ablation"),

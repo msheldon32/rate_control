@@ -29,7 +29,7 @@ class ExperimentRun:
         self.ablation_agent = agent.RC_Agent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], model_bounds, rng, True)
 
         self.agents = {
-                baseline: agent.LearnersAgent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], 0.01, learner, model_bounds, rng) 
+                baseline: agent.LearnersAgent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], 0.05, learner, model_bounds, rng) 
                     for baseline, learner in self.baseline_learners.items()
                 }
         
@@ -59,11 +59,13 @@ class ExperimentRun:
                 print(f"Ideal gain: ", self.ideal_gain)
 
     def summarize(self, timestep=10000):
-        return {
+        out_dict = {
             "ideal_gain": self.ideal_gain
-                } + {
-            k: v.summarize() for k, v in self.observers.items()
-            }
+        }
+
+        for k,v in self.observers.items():
+            out_dict[k] = v.summarize(self.ideal_gain)
+        return out_dict
 
 
 class Experiment:
@@ -89,7 +91,7 @@ class Experiment:
                 print(f"Run {run_no} failed, skipping...")
                 traceback.print_exc()
                 continue"""
-            with open(f"exp_out/{self.model_bounds.n_states}_states/no_ucrl3_baselines_{run_no}", "wb") as f:
+            with open(f"exp_out/{self.model_bounds.n_states}_states/baselines_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
 if __name__ == "__main__":

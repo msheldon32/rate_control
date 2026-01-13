@@ -44,7 +44,7 @@ class ModelRewards:
             print(f"({state-self.capacities[1]}): holding_reward: {self.holding_rewards[state]}, customer_rewards: {self.customer_rewards[state]}, server_rewards: {self.server_rewards[state]}")
 
 class ModelBounds:
-    def __init__(self, capacities, n_levels, rate_lb, rate_ub):
+    def __init__(self, capacities, n_levels, rate_lb, rate_ub, customer_ub=None, server_ub=None):
         self.capacities = capacities
         self.n_levels = n_levels
 
@@ -52,6 +52,16 @@ class ModelBounds:
         self.rate_ub = rate_ub
         self.n_states = sum(self.capacities)+1
         self.n_actions = n_levels[0]*n_levels[1]
+
+        if not customer_ub:
+            self.customer_ub = rate_ub
+        else:
+            self.customer_ub = customer_ub
+
+        if not server_ub:
+            self.server_ub = rate_ub
+        else:
+            self.server_ub = server_ub
 
 class Model:
     def __init__(self, customer_levels, server_levels, rewards, capacities, rng : np.random._generator.Generator):
@@ -282,6 +292,53 @@ class Model:
 
         return policy.Policy(new_mapping, self.capacities), gain, changed
 
+    def relative_value_iteration(self, original_policy=None, tolerance=0.01):
+        default_mapping = [(0,0) for i in range(self.n_states)]
+        if not original_policy:
+            new_policy = policy.Policy(default_mapping, self.capacities)
+        else:
+            new_policy = original_policy
+
+        values = [0 for i in range(self.n_states)]
+
+        while True:
+            new_mapping = [(0,0) for i in range(self.n_states)]
+
+            min_delta = float("inf")
+            max_delta = float("-inf")
+
+            for state_idx in range(self.n_states):
+                max_val = float("-inf")
+                argmax = (0,0)
+                for cust_level, cust_rate in enumerate(self.customer_levels[state_idx]):
+                    for serv_level, serv_rate in enumerate(self.server_levels[state_idx]):
+                        val = 0
+
+                        if cust_rate > 0:
+                            val += (cust_rate/(cust_rate+serv_rate))*values[state_idx+1]
+                        if serv_rate > 0:
+                            val += (serv_rate/(cust_rate+serv_rate))*values[state_idx-1]
+
+                        val += self.get_state_reward(state_idx, (cust_level, serv_level))
+
+                        if val > max_val:
+                            max_val = val
+                            argmax = (cust_level, serv_level)
+                new_values[state_idx] = max_val
+                new_mapping[state_idx] = argmax
+
+                min_delta = min(min_delta, new_values[state_idx]-values[state_idx])
+                max_delta = max(max_delta, new_values[state_idx]-values[state_idx])
+
+            # update
+            new_policy = policy.Policy(new_mapping, self.capacities)
+
+            # check for convergence
+            if max_delta - min_delta < tolerance:
+                break
+
+        return new_policy
+
     def get_optimal_policy(self, original_policy=None, n_iterations=500):
         default_mapping = [(0,0) for i in range(self.n_states)]
         if not original_policy:
@@ -346,4 +403,23 @@ def generate_random_model(model_bounds, rng : np.random._generator.Generator):
     server_levels[0] = [0 for x in server_levels[0]]
 
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
+    return model
+
+def generate_path_model(model_bounds, rng : np.random._generator.Generator):
+    capacities = model_bounds.capacities
+
+    n_states = sum(capacities)+1
+
+    customer_levels = [[4,2] for i in range(n_states)]
+    customer_levels[-1] = [0,0]
+    server_levels = [[5] for i in range(n_states)]
+    server_levels[0] = [0]
+
+    customer_rewards = [[0,0.5] for i in range(n_states)]
+    server_rewards = [[0] for i in range(n_states)]
+    holding_rewards = [0 for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+
+    model = Model(customer_levels, server_levels, rewards, capacities, rng)
+
     return model
