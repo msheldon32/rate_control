@@ -13,7 +13,7 @@ import traceback
 import sys
 
 class ExperimentRun:
-    def __init__(self, model_, model_bounds, rng, max_step_count):
+    def __init__(self, model_, model_bounds, rng, max_step_count, uni_constant=0.05, rand_rew=True):
         self.model = model_
         self.model_bounds = model_bounds
         self.rng = rng
@@ -29,7 +29,7 @@ class ExperimentRun:
         self.ablation_agent = agent.RC_Agent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], model_bounds, rng, True)
 
         self.agents = {
-                baseline: agent.LearnersAgent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], 0.05, learner, model_bounds, rng) 
+                baseline: agent.LearnersAgent(model_bounds.capacities, model_bounds.n_levels[0], model_bounds.n_levels[1], uni_constant, learner, model_bounds, rng) 
                     for baseline, learner in self.baseline_learners.items()
                 }
         
@@ -38,7 +38,7 @@ class ExperimentRun:
                 }
         
         self.simulators = {
-                baseline: simulator.Simulator(model_, agent, self.observers[baseline], self.rng)
+                baseline: simulator.Simulator(model_, agent, self.observers[baseline], self.rng, rand_rew=rand_rew)
                     for baseline, agent in self.agents.items()
                 }
 
@@ -94,7 +94,59 @@ class Experiment:
             with open(f"exp_out/{self.model_bounds.n_states}_states/baselines_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
-if __name__ == "__main__":
+
+class Experiment2:
+    def __init__(self, model_bounds, max_step_count, starting_seed=0, starting_no=0, ending_no=50):
+        self.model_bounds = model_bounds
+        self.starting_seed = 0
+        self.max_step_count = max_step_count
+        self.starting_no = starting_no
+        self.ending_no = ending_no
+        self.starting_seed = starting_seed
+
+    def run(self):
+        for run_no in range(self.starting_no, self.ending_no):
+            rng = np.random.default_rng(seed=(self.starting_seed + run_no))
+            model_ = model.generate_random_model_2(self.model_bounds, rng)
+
+            run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
+            #def __init__(self, model_, model_bounds, rng, max_step_count):
+            run.run(verbose=True)
+            """try:
+                run.run(verbose=True)
+            except Exception as e:
+                print(f"Run {run_no} failed, skipping...")
+                traceback.print_exc()
+                continue"""
+            with open(f"exp_out/{self.model_bounds.n_states}_states_2/baselines_{run_no}", "wb") as f:
+                pickle.dump(run.summarize(), f)
+
+class PathExperiment:
+    def __init__(self, max_step_count, cap_list, n_runs, starting_seed=0):
+        self.max_step_count = max_step_count
+        self.cap_list = cap_list
+        self.starting_seed = starting_seed
+        self.n_runs = n_runs
+
+    def run(self):
+        for cap_no, cap in enumerate(self.cap_list):
+            rng = np.random.default_rng(seed=(self.starting_seed + cap_no))
+            for run_no in range(self.n_runs):
+                model_bounds = model.ModelBounds(cap, (2,1), 1, 5, 5, 5)
+                model_ = model.generate_path_model(model_bounds, rng)
+
+                run = ExperimentRun(model_, model_bounds, rng, self.max_step_count, uni_constant=0.05, rand_rew=False)
+                #def __init__(self, model_, model_bounds, rng, max_step_count):
+                #run.run(verbose=True)
+                try:
+                    run.run(verbose=True)
+                except Exception as e:
+                    print(f"Run {run_no} failed, skipping...")
+                    continue
+                with open(f"exp_out/path_{model_bounds.n_states}_states/baselines_run_{run_no}", "wb") as f:
+                    pickle.dump(run.summarize(), f)
+
+def validation_experiment():
     # seed 1000: (3,3), (5,5)
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
@@ -106,6 +158,22 @@ if __name__ == "__main__":
     
     capacities, seed = bounds[int(sys.argv[1])]
     model_bounds = model.ModelBounds(capacities,(3,3), 1, 5)
-    exp = Experiment(model_bounds, 10000000, starting_seed = seed, starting_no=0, ending_no=50)
+    exp = Experiment2(model_bounds, 10000000, starting_seed = seed, starting_no=int(sys.argv[2]), ending_no=int(sys.argv[3]))
 
     exp.run()
+
+
+def path_experiment():
+    # seed 10,000
+
+    # bounds: (10,0), (20,0), (50,0)
+    #cap_list = [(10,0), (20,0), (50,0)]
+    cap_list = [(50,0)]
+
+    exp = PathExperiment(10000000, cap_list, 50, starting_seed=10002)
+
+    exp.run()
+
+if __name__ == "__main__":
+    validation_experiment()
+

@@ -229,8 +229,9 @@ class Model:
         """
 
         # find the bias using the time-reversed equation
-        for state_idx in range(self.n_states-1):
-            acc_pd = 1
+        midpoint = self.n_states//2
+        bias_diff = [0 for i in range(self.n_states-1)]
+        for state_idx in range(0, self.n_states-1):
             acc_diff = 0
             for att_state in range(state_idx+1, self.n_states):
                 cust_rate = self.customer_levels[att_state-1][policy_.get_action_idx(att_state-1)[0]]
@@ -242,10 +243,9 @@ class Model:
                 if cust_rate == 0:
                     break
 
-                acc_pd *= (cust_rate/serv_rate)
-                acc_diff += (acc_pd)*(mean_rewards[att_state] - gain)
+                acc_diff += distribution[att_state]*(mean_rewards[att_state] - gain)
             cust_rate = self.customer_levels[state_idx][policy_.get_action_idx(state_idx)[0]]
-            bias_diff.append(acc_diff/cust_rate)
+            bias_diff[state_idx] = acc_diff/(cust_rate*distribution[state_idx])
 
 
         bias = [0]
@@ -439,6 +439,57 @@ def generate_random_model(model_bounds, rng : np.random._generator.Generator):
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
     return model
 
+def generate_random_model_2(model_bounds, rng : np.random._generator.Generator):
+    capacities = model_bounds.capacities
+    n_levels = model_bounds.n_levels
+    rate_lb = model_bounds.rate_lb
+    rate_ub = model_bounds.rate_ub
+
+    n_states = sum(capacities)+1
+    #holding_rewards = list(rng.uniform(-1,1,n_states))
+    holding_rewards = []
+    for state_idx in range(n_states):
+        state = state_idx-capacities[1]
+        if state >= 0:
+            holding_rewards.append(state/(capacities[0]+1))
+        else:
+            holding_rewards.append(-state/(capacities[1]+1))
+        #holding_rewards.append(0.04 * abs(state))
+
+    customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
+    server_rewards = [list(rng.uniform(-1,1,n_levels[1])) for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+
+    customer_levels = []
+    server_levels = []
+
+    rate_midpoint = (rate_ub+rate_lb)/2
+    rate_midmidpoint = (rate_ub-rate_lb)*(1/4) + rate_lb
+
+    upper_c = sorted(list(rng.uniform(rate_midmidpoint, rate_ub, n_states)), reverse=True)
+    upper_s = sorted(list(rng.uniform(rate_midmidpoint, rate_ub, n_states)))
+
+    lower_c = sorted(list(rng.uniform(rate_lb, rate_midpoint, n_states)), reverse=True)
+    lower_s = sorted(list(rng.uniform(rate_lb, rate_midpoint, n_states)))
+
+
+    for state in range(n_states):
+        c_lo = min(lower_c[state], upper_c[state])
+        c_hi = max(lower_c[state], upper_c[state])
+        s_lo = min(lower_s[state], upper_s[state])
+        s_hi = max(lower_s[state], upper_s[state])
+        other_c = list(rng.uniform(c_lo, c_hi, n_levels[0]-2))
+        other_s = list(rng.uniform(s_lo, s_hi, n_levels[1]-2))
+
+        customer_levels.append([lower_c[state], upper_c[state]] + other_c)
+        server_levels.append([lower_s[state], upper_s[state]] + other_s)
+
+    customer_levels[-1] = [0 for x in customer_levels[-1]]
+    server_levels[0] = [0 for x in server_levels[0]]
+
+    model = Model(customer_levels, server_levels, rewards, capacities, rng)
+    return model
+
 def generate_path_model(model_bounds, rng : np.random._generator.Generator):
     capacities = model_bounds.capacities
 
@@ -446,7 +497,11 @@ def generate_path_model(model_bounds, rng : np.random._generator.Generator):
 
     customer_levels = [[2,1] for i in range(n_states)]
     customer_levels[-1] = [0,0]
-    server_levels = [[3] for i in range(n_states)]
+
+    n_servers = n_states//5
+    service_rate = 3/n_servers
+
+    server_levels = [[min(i*service_rate, n_servers*service_rate)] for i in range(n_states)]
     server_levels[0] = [0]
 
     customer_rewards = [[0,1] for i in range(n_states)]

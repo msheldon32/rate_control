@@ -11,7 +11,7 @@ FONTSIZE = 18
 TICKSIZE = 14
 ALPHA = 1.0
 
-def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, output_file=None):
+def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, output_file=None, hide_baselines=False, start_no=0):
     avg_regret = None
     abl_regret = None
     UCRL_regret = None
@@ -33,12 +33,17 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
     UCRL3_loss = None
     KL_loss = None
 
-    for run_no in range(n_runs):
+    for run_no in range(start_no, start_no+n_runs):
         with open(f"{folder}/run_{run_no}", "rb") as f:
             run_data = pickle.load(f)
+
         if baselines:
             baselines_file = f"{folder}/baselines_{run_no}"
             if os.path.isfile(baselines_file):
+                with open(baselines_file, "rb") as f:
+                    baseline_data = pickle.load(f)
+            elif os.path.isfile(f"{folder}/baselines_run_{run_no}"):
+                baselines_file = f"{folder}/baselines_run_{run_no}"
                 with open(baselines_file, "rb") as f:
                     baseline_data = pickle.load(f)
             else:
@@ -105,24 +110,31 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
         UCRL3_regret = [np.mean(x) for x in UCRL3_regret]
         UCRL2_regret = [np.mean(x) for x in UCRL2_regret]
         KL_regret = [np.mean(x) for x in KL_regret]
-    plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH, alpha=ALPHA)
-    line, = plt.plot(xlabels,abl_regret,"C1", label="Ablation", linewidth=LINEWIDTH, alpha=ALPHA)
-    plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH/2, alpha=ALPHA)
-    #plt.fill_between(xlabels,np.array(avg_regret)-np.array(avg_regret_std),(np.array(avg_regret)+np.array(avg_regret_std)), alpha=0.1, color="b")
-    #plt.fill_between(xlabels,np.array(abl_regret)-np.array(abl_regret_std),(np.array(abl_regret)+np.array(abl_regret_std)), alpha=0.1, color="r")
+    #plt.fill_between(xlabels,np.array(avg_regret)-np.array(avg_regret_std),(np.array(avg_regret)+np.array(avg_regret_std)), alpha=0.9, color="b")
+    #plt.fill_between(xlabels,np.array(abl_regret)-np.array(abl_regret_std),(np.array(abl_regret)+np.array(abl_regret_std)), alpha=0.9, color="r")
     if baselines:
-        plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linewidth=LINEWIDTH, alpha=ALPHA)
+        linewidth = LINEWIDTH
+        alpha = ALPHA
+        if hide_baselines:
+            linewidth /= 1.5
+            alpha /= 3
+        plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(KL_regret)-np.array(KL_regret_std),(np.array(KL_regret)+np.array(KL_regret_std)), alpha=0.1, color="g")
-        plt.plot(xlabels,UCRL2_regret,"C3", label="UCRL2", linewidth=LINEWIDTH, alpha=ALPHA)
+        plt.plot(xlabels,UCRL2_regret,"C3", label="UCRL2", linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(UCRL2_regret)-np.array(UCRL2_regret_std),(np.array(UCRL2_regret)+np.array(UCRL2_regret_std)), alpha=0.1, color="orange")
-        plt.plot(xlabels,UCRL3_regret,"C4", label="UCRL3", linewidth=LINEWIDTH, alpha=ALPHA)
+        plt.plot(xlabels,UCRL3_regret,"C4", label="UCRL3", linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(UCRL3_regret)-np.array(UCRL3_regret_std),(np.array(UCRL3_regret)+np.array(UCRL3_regret_std)), alpha=0.1, color="pink")
     if log:
         plt.yscale("log")
-        plt.ylim(bottom=100, top=1700000)
+        plt.ylim(bottom=10000, top=10000000)
     else:
-        plt.ylim(bottom=0, top=1700000)
+        plt.ylim(bottom=0, top=2500000)
         pass
+
+    plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH, alpha=ALPHA)
+    line, = plt.plot(xlabels,abl_regret,"C1", label="Ablation", linewidth=LINEWIDTH, alpha=ALPHA)
+    plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH/2, alpha=ALPHA)
+
     plt.xlabel("Steps", fontsize=FONTSIZE)
     plt.ylabel("Total Regret " + (" (Normalized)" if normalize_regret else ""), fontsize=FONTSIZE)
     plt.xlim(left=0, right=10000000)
@@ -155,15 +167,24 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
 
 
 if __name__ == "__main__":
-    analyze("exp_out/path_11_states/", 1, False, False, True, "viz/11_states.pdf")
-    analyze("exp_out/path_21_states/", 1, False, False, True, "viz/21_states.pdf")
-    #analyze("exp_out/51_states/", 3, True, False, True, "viz/51_states.pdf")
+    if False:
+        analyze("exp_out/path_11_states/", 50, True, False, True, "viz/path_11_states.pdf", True)
+        analyze("exp_out/path_21_states/", 50, True, False, True, "viz/path_21_states.pdf", True)
+        analyze("exp_out/path_51_states/", 50, True, False, True, "viz/path_51_states.pdf", True)
+    elif False:
+        analyze("exp_out/11_states/", 50, True, False, False, "viz/11_states.pdf", False)
+        analyze("exp_out/21_states/", 50, True, False, False, "viz/21_states.pdf", False)
+        analyze("exp_out/51_states/", 50, True, False, False, "viz/51_states.pdf", False)
+    else:
+        analyze("exp_out/11_states_2/", 50, True, False, False, "viz/11_states_2.pdf", False, start_no=0)
+        analyze("exp_out/21_states_2/", 50, True, False, False, "viz/21_states_2.pdf", False, start_no=0)
+        analyze("exp_out/51_states_2/", 50, True, False, False, "viz/51_states_2.pdf", False, start_no=0)
     lines = [
-        plt.Line2D([0], [0], color="C0", lw=2, label="UCRL-TSAC"),
+        plt.Line2D([0], [0], color="C0", lw=2, label="UCRL-RC"),
         plt.Line2D([0], [0], color="C1", lw=2, label="Ablation"),
-        #plt.Line2D([0], [0], color="C2", lw=2, label="UCRL2"),
-        #plt.Line2D([0], [0], color="C3", lw=2, label="KL-UCRL"),
-        #plt.Line2D([0], [0], color="C4", lw=2, label="UCRL3"),
+        plt.Line2D([0], [0], color="C2", lw=2, label="KL-UCRL"),
+        plt.Line2D([0], [0], color="C3", lw=2, label="UCRL2"),
+        plt.Line2D([0], [0], color="C4", lw=2, label="UCRL3"),
     ]
 
     fig_legend = plt.figure(figsize=(5,1))

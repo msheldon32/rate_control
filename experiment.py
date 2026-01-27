@@ -70,6 +70,30 @@ class Experiment:
             with open(f"exp_out/{self.model_bounds.n_states}_states/run_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
+class Experiment2:
+    def __init__(self, model_bounds, max_step_count, starting_seed=0, starting_no=0, ending_no=50):
+        self.model_bounds = model_bounds
+        self.starting_seed = 0
+        self.max_step_count = max_step_count
+        self.starting_no = starting_no
+        self.ending_no = ending_no
+        self.starting_seed = starting_seed
+
+    def run(self):
+        for run_no in range(self.starting_no, self.ending_no):
+            rng = np.random.default_rng(seed=(self.starting_seed + run_no))
+            model_ = model.generate_random_model_2(self.model_bounds, rng)
+
+            run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
+            #def __init__(self, model_, model_bounds, rng, max_step_count):
+            try:
+                run.run(verbose=True)
+            except Exception as e:
+                print(f"Run {run_no} failed, skipping...")
+                continue
+            with open(f"exp_out/{self.model_bounds.n_states}_states_2/run_{run_no}", "wb") as f:
+                pickle.dump(run.summarize(), f)
+
 class PathExperiment:
     def __init__(self, max_step_count, cap_list, n_runs, starting_seed=0):
         self.max_step_count = max_step_count
@@ -81,7 +105,7 @@ class PathExperiment:
         for cap_no, cap in enumerate(self.cap_list):
             rng = np.random.default_rng(seed=(self.starting_seed + cap_no))
             for run_no in range(self.n_runs):
-                model_bounds = model.ModelBounds(cap, (2,1), 1, 5, 5, 3)
+                model_bounds = model.ModelBounds(cap, (2,1), 1, 5, 5, 5)
                 model_ = model.generate_path_model(model_bounds, rng)
 
                 run = ExperimentRun(model_, model_bounds, rng, self.max_step_count, rand_rew=False)
@@ -100,7 +124,7 @@ def validation_experiment():
     # seed 3000: (3,3), (25,25)
     cap = 5
     model_bounds = model.ModelBounds((25,25),(3,3), 1, 5)
-    exp = Experiment(model_bounds, 10000000, starting_seed = 3000, starting_no=0, ending_no=50)
+    exp = Experiment2(model_bounds, 10000000, starting_seed = 3000, starting_no=40, ending_no=50)
 
     exp.run()
 
@@ -108,12 +132,12 @@ def path_experiment():
     # seed 10,000
 
     # bounds: (10,0), (20,0), (50,0)
-    cap_list = [(10,0), (20,0), (50,0)]
-    #cap_list = [(50,0)]
+    #cap_list = [(10,0), (20,0), (50,0)]
+    cap_list = [(10,0)]
 
     exp = PathExperiment(10000000, cap_list, 50, starting_seed=10000)
 
     exp.run()
 
 if __name__ == "__main__":
-    path_experiment()
+    validation_experiment()
