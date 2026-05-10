@@ -158,7 +158,7 @@ def validation_experiment():
     # seeds 4000-6000 are for high d
     cap = 5
     model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
-    exp = Experiment2(model_bounds, 10000000, starting_seed = 4000, starting_no=0, ending_no=50)
+    exp = Experiment2(model_bounds, 10000000, starting_seed = 1000, starting_no=0, ending_no=50)
 
     exp.run()
 

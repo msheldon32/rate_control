@@ -327,6 +327,91 @@ class Model:
 
         return policy.Policy(new_mapping, self.capacities), gain, changed
 
+    def evaluate_policy2(self, policy_):
+        # Solve for gain g and bias h via the average-reward Bellman equation:
+        #   g = r(s) + cust_rate(s)*(h(s+1)-h(s)) + serv_rate(s)*(h(s-1)-h(s))
+        # plus the normalization h(0) = 0. This is an (n+1) x (n+1) linear
+        # system in unknowns x = [h(0), ..., h(n-1), g], solved via lstsq (SVD)
+        # for numerical stability rather than the forward/backward analytical
+        # recursion in evaluate_policy.
+        n = self.n_states
+        A = np.zeros((n + 1, n + 1))
+        b = np.zeros(n + 1)
+
+        for state_idx in range(n):
+            action = policy_.get_action_idx(state_idx)
+            cust_rate = self.customer_levels[state_idx][action[0]]
+            serv_rate = self.server_levels[state_idx][action[1]]
+            r = self.get_state_reward(state_idx, action)
+
+            if cust_rate > 0:
+                A[state_idx, state_idx + 1] += cust_rate
+                A[state_idx, state_idx] -= cust_rate
+            if serv_rate > 0:
+                A[state_idx, state_idx - 1] += serv_rate
+                A[state_idx, state_idx] -= serv_rate
+            A[state_idx, n] = -1.0
+            b[state_idx] = -r
+
+        A[n, 0] = 1.0
+        b[n] = 0.0
+
+        x, *_ = np.linalg.lstsq(A, b, rcond=None)
+
+        bias = [float(v) for v in x[:n]]
+        gain = float(x[n])
+
+        return gain, bias
+
+    def improve_policy2(self, policy_):
+        gain, bias = self.evaluate_policy2(policy_)
+
+        new_mapping = []
+        changed = False
+
+        for state_idx in range(self.n_states):
+            argmax = policy_.get_action_idx(state_idx)
+
+            cust_rate = self.customer_levels[state_idx][argmax[0]]
+            serv_rate = self.server_levels[state_idx][argmax[1]]
+            bias_nom = 0
+            total_rate = 0
+            if cust_rate > 0:
+                bias_nom += cust_rate * bias[state_idx + 1]
+                total_rate += cust_rate
+            if serv_rate > 0:
+                bias_nom += serv_rate * bias[state_idx - 1]
+                total_rate += serv_rate
+
+            bias_nom += self.get_state_reward(state_idx, argmax)
+            bias_nom -= gain
+
+            max_bias = bias_nom / total_rate if total_rate > 0 else float("-inf")
+
+            for cust_level, cust_rate in enumerate(self.customer_levels[state_idx]):
+                for serv_level, serv_rate in enumerate(self.server_levels[state_idx]):
+                    bias_nom = 0
+                    total_rate = 0
+                    if cust_rate > 0:
+                        bias_nom += cust_rate * bias[state_idx + 1]
+                        total_rate += cust_rate
+                    if serv_rate > 0:
+                        bias_nom += serv_rate * bias[state_idx - 1]
+                        total_rate += serv_rate
+
+                    bias_nom += self.get_state_reward(state_idx, (cust_level, serv_level))
+                    bias_nom -= gain
+
+                    if total_rate > 0 and (bias_nom / total_rate) > max_bias + 1e-2:
+                        max_bias = bias_nom / total_rate
+                        argmax = (cust_level, serv_level)
+
+            new_mapping.append(argmax)
+            if argmax != policy_.get_action_idx(state_idx):
+                changed = True
+
+        return policy.Policy(new_mapping, self.capacities), gain, changed
+
     def relative_value_iteration(self, original_policy=None, tolerance=0.01):
         default_mapping = [(0,0) for i in range(self.n_states)]
         if not original_policy:
