@@ -155,7 +155,7 @@ def validation_experiment():
     # seed 3000: (3,3), (25,25)
     cap = 5
     model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
-    exp = Experiment2(model_bounds, 10000000, starting_seed = 3000, starting_no=0, ending_no=1, save=False)
+    exp = Experiment(model_bounds, 10000000, starting_seed = 1000, starting_no=0, ending_no=50)
 
     exp.run()
 

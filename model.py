@@ -589,15 +589,16 @@ def generate_model_lowd(model_bounds, rng):
     for state_idx in range(n_states):
         state = state_idx-capacities[1]
         if state >= 0:
-            holding_rewards.append(state/(capacities[0]+1))
+            holding_rewards.append(-state/(capacities[0]+1))
         else:
-            holding_rewards.append(-state/(capacities[1]+1))
+            holding_rewards.append(state/(capacities[1]+1))
         #holding_rewards.append(0.04 * abs(state))
 
     customer_rewards = list(rng.uniform(-1,1,n_levels[0]))
     customer_rewards = [customer_rewards for i in range(n_states)]
     server_rewards = list(rng.uniform(-1,1,n_levels[1]))
     server_rewards = [server_rewards for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
 
     rate_midpoint = (rate_ub+rate_lb)/2
     ubc = list(rng.uniform(rate_midpoint, rate_ub, n_levels[0]))
@@ -638,15 +639,16 @@ def generate_model_highd(model_bounds, rng):
     for state_idx in range(n_states):
         state = state_idx-capacities[1]
         if state >= 0:
-            holding_rewards.append(state/(capacities[0]+1))
+            holding_rewards.append(-state/(capacities[0]+1))
         else:
-            holding_rewards.append(-state/(capacities[1]+1))
+            holding_rewards.append(state/(capacities[1]+1))
         #holding_rewards.append(0.04 * abs(state))
 
     customer_rewards = list(rng.uniform(-1,1,n_levels[0]))
     customer_rewards = [customer_rewards for i in range(n_states)]
     server_rewards = list(rng.uniform(-1,1,n_levels[1]))
     server_rewards = [server_rewards for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
 
     rate_75 = (rate_ub-rate_lb)*0.75 + rate_lb
     rate_25 = (rate_ub-rate_ub)*0.25 + rate_ub
