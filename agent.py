@@ -51,6 +51,18 @@ class RC_Agent(Agent):
         self.policy,_ = self.model.get_optimal_policy()
         self.ablation = ablation
 
+    def visualize(self, true_model):
+        reduced_policy = self.policy.reduce()
+        true_gain, true_bias = true_model.evaluate_policy(reduced_policy)
+        opt_viz, _ = self.model.plot_distribution(self.policy)
+        true_viz, _ = true_model.plot_distribution(reduced_policy)
+        fake_gain, fake_bias = self.model.evaluate_policy(self.policy)
+
+        fake_bias_span = abs(max(fake_bias)-min(fake_bias))
+        true_bias_span = abs(max(true_bias)-min(true_bias))
+
+        return opt_viz, true_viz, fake_gain, true_gain, fake_bias_span, true_bias_span
+
     def state_idx(self, state):
         return state + self.model_bounds.capacities[1]
 

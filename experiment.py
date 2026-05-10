@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 
 class ExperimentRun:
-    def __init__(self, model_, model_bounds, rng, max_step_count, rand_rew=True):
+    def __init__(self, model_, model_bounds, rng, max_step_count, rand_rew=True, show=False):
         self.model = model_
         self.model_bounds = model_bounds
         self.rng = rng
@@ -27,6 +27,8 @@ class ExperimentRun:
 
         _, self.ideal_gain = self.model.get_optimal_policy(n_iterations=10000)
 
+        self.show = show
+
     def run(self, verbose=False):
         for i in range(self.max_step_count):
             self.agent_sim.step()
@@ -37,6 +39,26 @@ class ExperimentRun:
                 print(f"Trailing gain (rc): ", self.agent_observer.trailing_gain(10000))
                 print(f"Trailing gain (ablation): ", self.ablation_observer.trailing_gain(10000))
                 print(f"Ideal gain: ", self.ideal_gain)
+
+        opt_viz, real_viz, opt_gain, real_gain, = self.agent.visualize(self.model)
+        opt_viz_abl, real_viz_abl, opt_gain_abl, real_gain_abl = self.ablation_agent.visualize(self.model)
+
+        opt_viz.show()
+        opt_viz.savefig("viz/opt_path_policy.pdf", bbox_inches="tight")
+        input("continue")
+        real_viz.show()
+        real_viz.savefig("viz/real_path_policy.pdf", bbox_inches="tight")
+        input("continue")
+        opt_viz_abl.show()
+        opt_viz_abl.savefig("viz/opt_path_policy_abl.pdf", bbox_inches="tight")
+        input("continue")
+        real_viz_abl.show()
+        real_viz_abl.savefig("viz/real_path_policy_abl.pdf", bbox_inches="tight")
+        input("continue")
+
+        print(f"gain (rc): {opt_gain} vs {real_gain}")
+        print(f"gain (abl): {opt_gain_abl} vs {real_gain_abl}")
+        input("continue")
 
     def summarize(self, timestep=10000):
         return {
@@ -95,11 +117,12 @@ class Experiment2:
                 pickle.dump(run.summarize(), f)
 
 class PathExperiment:
-    def __init__(self, max_step_count, cap_list, n_runs, starting_seed=0):
+    def __init__(self, max_step_count, cap_list, n_runs, starting_seed=0, save=True):
         self.max_step_count = max_step_count
         self.cap_list = cap_list
         self.starting_seed = starting_seed
         self.n_runs = n_runs
+        self.save = save
 
     def run(self):
         for cap_no, cap in enumerate(self.cap_list):
@@ -108,8 +131,16 @@ class PathExperiment:
                 model_bounds = model.ModelBounds(cap, (2,1), 1, 5, 5, 5)
                 model_ = model.generate_path_model(model_bounds, rng)
 
+                policy_, _ = model_.get_optimal_policy()
+
+                plot,_ = model_.plot_distribution(policy_)
+
+                plot.show()
+                plot.savefig("viz/true_optimal_policy.pdf", bbox_inches="tight")
+
                 run = ExperimentRun(model_, model_bounds, rng, self.max_step_count, rand_rew=False)
                 #def __init__(self, model_, model_bounds, rng, max_step_count):
+                run.run(verbose=True)
                 try:
                     run.run(verbose=True)
                 except Exception as e:
@@ -123,8 +154,8 @@ def validation_experiment():
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
     cap = 5
-    model_bounds = model.ModelBounds((25,25),(3,3), 1, 5)
-    exp = Experiment2(model_bounds, 10000000, starting_seed = 3000, starting_no=40, ending_no=50)
+    model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
+    exp = Experiment2(model_bounds, 10000000, starting_seed = 3000, starting_no=0, ending_no=1, save=False)
 
     exp.run()
 
@@ -133,11 +164,11 @@ def path_experiment():
 
     # bounds: (10,0), (20,0), (50,0)
     #cap_list = [(10,0), (20,0), (50,0)]
-    cap_list = [(10,0)]
+    cap_list = [(50,0)]
 
     exp = PathExperiment(10000000, cap_list, 50, starting_seed=10000)
 
     exp.run()
 
 if __name__ == "__main__":
-    validation_experiment()
+    path_experiment()

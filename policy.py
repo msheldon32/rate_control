@@ -12,3 +12,8 @@ class Policy:
     def get_action(self, state):
         state_idx = self.get_state_idx(state)
         return self.get_action_idx(state_idx)
+
+    def reduce(self):
+        new_mapping = [(a//2, b//2) for a,b in self.policy_mapping]
+
+        return Policy(new_mapping, self.capacities)

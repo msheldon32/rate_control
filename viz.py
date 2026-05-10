@@ -6,7 +6,7 @@ import matplotlib.patheffects as pe
 import pickle
 import os
 
-LINEWIDTH = 4
+LINEWIDTH = 3
 FONTSIZE = 18
 TICKSIZE = 14
 ALPHA = 1.0
@@ -118,11 +118,11 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
         if hide_baselines:
             linewidth /= 1.5
             alpha /= 3
-        plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linewidth=linewidth, alpha=alpha)
+        plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linestyle=(0, (1,1)), linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(KL_regret)-np.array(KL_regret_std),(np.array(KL_regret)+np.array(KL_regret_std)), alpha=0.1, color="g")
-        plt.plot(xlabels,UCRL2_regret,"C3", label="UCRL2", linewidth=linewidth, alpha=alpha)
+        plt.plot(xlabels,UCRL2_regret,"C3", label="UCRL2", linestyle=(0, (7,3)), linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(UCRL2_regret)-np.array(UCRL2_regret_std),(np.array(UCRL2_regret)+np.array(UCRL2_regret_std)), alpha=0.1, color="orange")
-        plt.plot(xlabels,UCRL3_regret,"C4", label="UCRL3", linewidth=linewidth, alpha=alpha)
+        plt.plot(xlabels,UCRL3_regret,"C4", label="UCRL3", linestyle=(0, (3, 1, 1, 1)), linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(UCRL3_regret)-np.array(UCRL3_regret_std),(np.array(UCRL3_regret)+np.array(UCRL3_regret_std)), alpha=0.1, color="pink")
     if log:
         plt.yscale("log")
@@ -132,8 +132,8 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
         pass
 
     plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH, alpha=ALPHA)
-    line, = plt.plot(xlabels,abl_regret,"C1", label="Ablation", linewidth=LINEWIDTH, alpha=ALPHA)
-    plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH/2, alpha=ALPHA)
+    line, = plt.plot(xlabels,abl_regret,"C1", label="Ablation", linestyle="dashed", linewidth=LINEWIDTH, alpha=ALPHA)
+    #plt.plot(xlabels,avg_regret,"C0", label="UCRL-TSAC", linewidth=LINEWIDTH/2, alpha=ALPHA)
 
     plt.xlabel("Steps", fontsize=FONTSIZE)
     plt.ylabel("Total Regret " + (" (Normalized)" if normalize_regret else ""), fontsize=FONTSIZE)
@@ -157,6 +157,8 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
     print("Total regret (ablation): ", abl_regret[-1])
     if baselines:
         print("Total regret (UCRL2): ", UCRL2_regret[-1])
+        print("Total regret (UCRL3): ", UCRL3_regret[-1])
+        print("Total regret (KL): ", KL_regret[-1])
     
     print("Reward ratio (rc): ", np.mean(avg_loss))
     print("Reward ratio (ablation): ", np.mean(abl_loss))
@@ -167,24 +169,24 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
 
 
 if __name__ == "__main__":
-    if False:
-        analyze("exp_out/path_11_states/", 50, True, False, True, "viz/path_11_states.pdf", True)
-        analyze("exp_out/path_21_states/", 50, True, False, True, "viz/path_21_states.pdf", True)
-        analyze("exp_out/path_51_states/", 50, True, False, True, "viz/path_51_states.pdf", True)
+    if True:
+        analyze("exp_out/path_11_states/", 50, False, False, False, "viz/path_11_states.pdf", True)
+        analyze("exp_out/path_21_states/", 50, False, False, False, "viz/path_21_states.pdf", True)
+        analyze("exp_out/path_51_states/", 50, False, False, False, "viz/path_51_states.pdf", True)
     elif False:
-        analyze("exp_out/11_states/", 50, True, False, False, "viz/11_states.pdf", False)
-        analyze("exp_out/21_states/", 50, True, False, False, "viz/21_states.pdf", False)
-        analyze("exp_out/51_states/", 50, True, False, False, "viz/51_states.pdf", False)
+        analyze("exp_out/11_states/", 50, False, False, False, "viz/11_states.pdf", False)
+        analyze("exp_out/21_states/", 50, False, False, False, "viz/21_states.pdf", False)
+        analyze("exp_out/51_states/", 50, False, False, False, "viz/51_states.pdf", False)
     else:
-        analyze("exp_out/11_states_2/", 50, True, False, False, "viz/11_states_2.pdf", False, start_no=0)
-        analyze("exp_out/21_states_2/", 50, True, False, False, "viz/21_states_2.pdf", False, start_no=0)
-        analyze("exp_out/51_states_2/", 50, True, False, False, "viz/51_states_2.pdf", False, start_no=0)
+        analyze("exp_out/11_states_2/", 50, False, False, False, "viz/11_states_2.pdf", False, start_no=0)
+        analyze("exp_out/21_states_2/", 50, False, False, False, "viz/21_states_2.pdf", False, start_no=0)
+        analyze("exp_out/51_states_2/", 50, False, False, False, "viz/51_states_2.pdf", False, start_no=0)
     lines = [
-        plt.Line2D([0], [0], color="C0", lw=2, label="UCRL-RC"),
-        plt.Line2D([0], [0], color="C1", lw=2, label="Ablation"),
-        plt.Line2D([0], [0], color="C2", lw=2, label="KL-UCRL"),
-        plt.Line2D([0], [0], color="C3", lw=2, label="UCRL2"),
-        plt.Line2D([0], [0], color="C4", lw=2, label="UCRL3"),
+        plt.Line2D([5], [5], color="C0", lw=2, label="Proposed Algorithm"),
+        plt.Line2D([5], [5], color="C1", lw=2, linestyle="dashed", label="Ablation"),
+        #plt.Line2D([5], [5], color="C2", lw=2, linestyle=(0,(1,1)), label="KL-UCRL"),
+        #plt.Line2D([5], [5], color="C3", lw=2, linestyle="dashed", label="UCRL2"),
+        #plt.Line2D([5], [5], color="C4", lw=2, linestyle=(0,(3,1,1,1)), label="UCRL3"),
     ]
 
     fig_legend = plt.figure(figsize=(5,1))

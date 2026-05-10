@@ -1,6 +1,7 @@
 import policy
 
 import numpy as np
+import matplotlib.pyplot as plt
 import random
 
 from util import *
@@ -373,6 +374,92 @@ class Model:
 
         return new_policy
 
+    def plot_distribution(self, policy_, title=None, savepath=None, dpi=200):
+        dist_raw = self.get_distribution(policy_)
+        rew_raw  = self.get_mean_rewards(policy_)
+
+        dist = [float(v) for v in dist_raw]
+        rewards = [float(v) for v in rew_raw]
+
+        if len(dist) != len(rewards):
+            raise ValueError(f"dist and rewards must have same length, got {len(dist)} vs {len(rewards)}")
+        S = len(dist)
+        if S == 0:
+            raise ValueError("Empty dist/rewards")
+
+        # --- capacity-scaled x locations ---
+        lo = -float(self.capacities[1])
+        hi =  float(self.capacities[0])
+        if S == 1:
+            x = [0.5 * (lo + hi)]
+            dx = 1.0
+        else:
+            dx = (hi - lo) / (S - 1)
+            x = [lo + i * dx for i in range(S)]
+
+        # --- nice ticks (keep endpoints visible) ---
+        tick_count = (S//5)+1
+        tick_idx = [i*5 for i in range(tick_count)] if tick_count > 1 else [0]
+        tick_vals = [x[i] for i in tick_idx]
+
+        def fmt(v):
+            if abs(v) < 5e-10:
+                v = 0.0
+            iv = int(round(v))
+            return str(iv) if abs(v - iv) < 1e-10 else f"{v:g}"
+
+        tick_labels = [fmt(v) for v in tick_vals]
+
+        # --- figure ---
+        fig, (ax0, ax1) = plt.subplots(
+            2, 1, figsize=(6.4, 4.2), sharex=True,
+            gridspec_kw={"height_ratios": [1.15, 1.0], "hspace": 0.08}
+        )
+
+        for ax in (ax0, ax1):
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.grid(True, axis="y", linewidth=0.6, alpha=0.25)
+            ax.set_axisbelow(True)
+
+        # --- top: distribution ---
+        bar_w = 0.85 * dx if S > 1 else 0.8
+        ax0.bar(x, dist, width=bar_w, linewidth=0.0, alpha=0.9)
+        ax0.set_ylabel("State probability")
+
+        s = sum(dist)
+        if s > 0 and abs(s - 1.0) > 1e-3:
+            ax0.text(0.99, 0.92, f"sum={s:.2f}", transform=ax0.transAxes,
+                     ha="right", va="top", fontsize=9, alpha=0.7)
+
+        # (optional) highlight probability concentration: top-3 states
+        #k = min(3, S)
+        #top_idx = sorted(range(S), key=lambda i: dist[i])[-k:]
+        #ax0.scatter([x[i] for i in top_idx], [dist[i] for i in top_idx], s=25, zorder=3)
+
+        # --- bottom: rewards ---
+        ax1.plot(x, rewards, linewidth=2.0)
+        ax1.axhline(0.0, linewidth=1.0, alpha=0.4)
+        ax1.set_ylabel("Mean reward")
+        ax1.set_xlabel("State")
+
+        # x ticks & limits (ensure endpoints readable)
+        ax1.set_xticks(tick_vals)
+        ax1.set_xticklabels(tick_labels)
+        if S > 1:
+            ax1.set_xlim(x[0] - 0.5 * dx, x[-1] + 0.5 * dx)
+
+        ax1.set_ylim([0, 11])
+
+        if title:
+            fig.suptitle(title, y=0.98)
+
+        fig.tight_layout()
+        if savepath:
+            fig.savefig(savepath, bbox_inches="tight", dpi=dpi)
+
+        return fig, (ax0, ax1)
+
     def get_optimal_policy(self, original_policy=None, n_iterations=500):
         default_mapping = [(0,0) for i in range(self.n_states)]
         if not original_policy:
@@ -507,6 +594,26 @@ def generate_path_model(model_bounds, rng : np.random._generator.Generator):
     customer_rewards = [[0,1] for i in range(n_states)]
     server_rewards = [[0] for i in range(n_states)]
     holding_rewards = [0 for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+
+    model = Model(customer_levels, server_levels, rewards, capacities, rng)
+
+    return model
+
+def generate_special_model(model_bounds, rng : np.random._generator.Generator):
+    capacities = model_bounds.capacities
+
+    n_states = sum(capacities)+1
+
+    customer_levels = [[1.0, 2.0, 3.0] for i in range(n_states)]
+    customer_levels[-1] = [0 for i in range(3)]
+
+    server_levels = [[1.0, 2.0, 3.0] for i in range(n_states)]
+    server_levels[0] = [0 for i in range(3)]
+
+    customer_rewards = [[0.66, 0.33, 0.0] for i in range(n_states)]
+    server_rewards = [[0.0, -0.33, -0.66] for i in range(n_states)]
+    holding_rewards = [abs(i-10)*0.1 for i in range(n_states)]
     rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
 
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
