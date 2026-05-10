@@ -594,9 +594,9 @@ def generate_model_lowd(model_bounds, rng):
             holding_rewards.append(state/(capacities[1]+1))
         #holding_rewards.append(0.04 * abs(state))
 
-    customer_rewards = list(rng.uniform(-1,1,n_levels[0]))
+    customer_rewards = list(rng.uniform(0,1,n_levels[0]))
     customer_rewards = [customer_rewards for i in range(n_states)]
-    server_rewards = list(rng.uniform(-1,1,n_levels[1]))
+    server_rewards = list(rng.uniform(-1,0,n_levels[1]))
     server_rewards = [server_rewards for i in range(n_states)]
     rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
 
@@ -615,6 +615,7 @@ def generate_model_lowd(model_bounds, rng):
         for clevel in range(n_levels[-1]):
             rev = (n_states-state-1)
             rate = (rev/(n_states-1))*(ubc[clevel]-lbc[clevel]) + lbc[clevel]
+            customer_levels[-1].append(rate)
 
         for slevel in range(n_levels[1]):
             rate = (state/(n_states-1))*(ubs[slevel]-lbs[slevel]) + lbs[slevel]
@@ -624,6 +625,8 @@ def generate_model_lowd(model_bounds, rng):
     server_levels[0] = [0 for x in server_levels[0]]
 
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
+    model.print_rates()
+    model.rewards.print_rewards()
     return model
 
 
@@ -644,9 +647,9 @@ def generate_model_highd(model_bounds, rng):
             holding_rewards.append(state/(capacities[1]+1))
         #holding_rewards.append(0.04 * abs(state))
 
-    customer_rewards = list(rng.uniform(-1,1,n_levels[0]))
+    customer_rewards = list(rng.uniform(0,1,n_levels[0]))
     customer_rewards = [customer_rewards for i in range(n_states)]
-    server_rewards = list(rng.uniform(-1,1,n_levels[1]))
+    server_rewards = list(rng.uniform(-1,0,n_levels[1]))
     server_rewards = [server_rewards for i in range(n_states)]
     rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
 
@@ -660,12 +663,14 @@ def generate_model_highd(model_bounds, rng):
     customer_levels = []
     server_levels = []
 
+
     for state in range(n_states):
         server_levels.append([])
         customer_levels.append([])
         for clevel in range(n_levels[-1]):
             rev = (n_states-state-1)
             rate = (rev/(n_states-1))*(ubc[clevel]-lbc[clevel]) + lbc[clevel]
+            customer_levels[-1].append(rate)
 
         for slevel in range(n_levels[1]):
             rate = (state/(n_states-1))*(ubs[slevel]-lbs[slevel]) + lbs[slevel]

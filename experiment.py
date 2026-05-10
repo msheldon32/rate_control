@@ -39,26 +39,27 @@ class ExperimentRun:
                 print(f"Trailing gain (rc): ", self.agent_observer.trailing_gain(10000))
                 print(f"Trailing gain (ablation): ", self.ablation_observer.trailing_gain(10000))
                 print(f"Ideal gain: ", self.ideal_gain)
+        
+        if self.show:
+            opt_viz, real_viz, opt_gain, real_gain, = self.agent.visualize(self.model)
+            opt_viz_abl, real_viz_abl, opt_gain_abl, real_gain_abl = self.ablation_agent.visualize(self.model)
 
-        opt_viz, real_viz, opt_gain, real_gain, = self.agent.visualize(self.model)
-        opt_viz_abl, real_viz_abl, opt_gain_abl, real_gain_abl = self.ablation_agent.visualize(self.model)
+            opt_viz.show()
+            opt_viz.savefig("viz/opt_path_policy.pdf", bbox_inches="tight")
+            input("continue")
+            real_viz.show()
+            real_viz.savefig("viz/real_path_policy.pdf", bbox_inches="tight")
+            input("continue")
+            opt_viz_abl.show()
+            opt_viz_abl.savefig("viz/opt_path_policy_abl.pdf", bbox_inches="tight")
+            input("continue")
+            real_viz_abl.show()
+            real_viz_abl.savefig("viz/real_path_policy_abl.pdf", bbox_inches="tight")
+            input("continue")
 
-        opt_viz.show()
-        opt_viz.savefig("viz/opt_path_policy.pdf", bbox_inches="tight")
-        input("continue")
-        real_viz.show()
-        real_viz.savefig("viz/real_path_policy.pdf", bbox_inches="tight")
-        input("continue")
-        opt_viz_abl.show()
-        opt_viz_abl.savefig("viz/opt_path_policy_abl.pdf", bbox_inches="tight")
-        input("continue")
-        real_viz_abl.show()
-        real_viz_abl.savefig("viz/real_path_policy_abl.pdf", bbox_inches="tight")
-        input("continue")
-
-        print(f"gain (rc): {opt_gain} vs {real_gain}")
-        print(f"gain (abl): {opt_gain_abl} vs {real_gain_abl}")
-        input("continue")
+            print(f"gain (rc): {opt_gain} vs {real_gain}")
+            print(f"gain (abl): {opt_gain_abl} vs {real_gain_abl}")
+            input("continue")
 
     def summarize(self, timestep=10000):
         return {
@@ -153,9 +154,11 @@ def validation_experiment():
     # seed 1000: (3,3), (5,5)
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
+
+    # seeds 4000-6000 are for high d
     cap = 5
     model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
-    exp = Experiment(model_bounds, 10000000, starting_seed = 1000, starting_no=0, ending_no=50)
+    exp = Experiment2(model_bounds, 10000000, starting_seed = 4000, starting_no=0, ending_no=50)
 
     exp.run()
 
@@ -171,4 +174,4 @@ def path_experiment():
     exp.run()
 
 if __name__ == "__main__":
-    path_experiment()
+    validation_experiment()
