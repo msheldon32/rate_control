@@ -577,6 +577,105 @@ def generate_random_model_2(model_bounds, rng : np.random._generator.Generator):
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
     return model
 
+def generate_model_lowd(model_bounds, rng):
+    capacities = model_bounds.capacities
+    n_levels = model_bounds.n_levels
+    rate_lb = model_bounds.rate_lb
+    rate_ub = model_bounds.rate_ub
+
+    n_states = sum(capacities)+1
+    #holding_rewards = list(rng.uniform(-1,1,n_states))
+    holding_rewards = []
+    for state_idx in range(n_states):
+        state = state_idx-capacities[1]
+        if state >= 0:
+            holding_rewards.append(state/(capacities[0]+1))
+        else:
+            holding_rewards.append(-state/(capacities[1]+1))
+        #holding_rewards.append(0.04 * abs(state))
+
+    customer_rewards = list(rng.uniform(-1,1,n_levels[0]))
+    customer_rewards = [customer_rewards for i in range(n_states)]
+    server_rewards = list(rng.uniform(-1,1,n_levels[1]))
+    server_rewards = [server_rewards for i in range(n_states)]
+
+    rate_midpoint = (rate_ub+rate_lb)/2
+    ubc = list(rng.uniform(rate_midpoint, rate_ub, n_levels[0]))
+    lbc = list(rng.uniform(rate_lb, rate_midpoint, n_levels[0]))
+    ubs = list(rng.uniform(rate_midpoint, rate_ub, n_levels[1]))
+    lbs = list(rng.uniform(rate_lb, rate_midpoint, n_levels[1]))
+
+    customer_levels = []
+    server_levels = []
+
+    for state in range(n_states):
+        server_levels.append([])
+        customer_levels.append([])
+        for clevel in range(n_levels[-1]):
+            rev = (n_states-state-1)
+            rate = (rev/(n_states-1))*(ubc[clevel]-lbc[clevel]) + lbc[clevel]
+
+        for slevel in range(n_levels[1]):
+            rate = (state/(n_states-1))*(ubs[slevel]-lbs[slevel]) + lbs[slevel]
+            server_levels[-1].append(rate)
+
+    customer_levels[-1] = [0 for x in customer_levels[-1]]
+    server_levels[0] = [0 for x in server_levels[0]]
+
+    model = Model(customer_levels, server_levels, rewards, capacities, rng)
+    return model
+
+
+def generate_model_highd(model_bounds, rng):
+    capacities = model_bounds.capacities
+    n_levels = model_bounds.n_levels
+    rate_lb = model_bounds.rate_lb
+    rate_ub = model_bounds.rate_ub
+
+    n_states = sum(capacities)+1
+    #holding_rewards = list(rng.uniform(-1,1,n_states))
+    holding_rewards = []
+    for state_idx in range(n_states):
+        state = state_idx-capacities[1]
+        if state >= 0:
+            holding_rewards.append(state/(capacities[0]+1))
+        else:
+            holding_rewards.append(-state/(capacities[1]+1))
+        #holding_rewards.append(0.04 * abs(state))
+
+    customer_rewards = list(rng.uniform(-1,1,n_levels[0]))
+    customer_rewards = [customer_rewards for i in range(n_states)]
+    server_rewards = list(rng.uniform(-1,1,n_levels[1]))
+    server_rewards = [server_rewards for i in range(n_states)]
+
+    rate_75 = (rate_ub-rate_lb)*0.75 + rate_lb
+    rate_25 = (rate_ub-rate_ub)*0.25 + rate_ub
+    ubc = list(rng.uniform(rate_75, rate_ub, n_levels[0]))
+    lbc = list(rng.uniform(rate_lb, rate_25, n_levels[0]))
+    ubs = list(rng.uniform(rate_75, rate_ub, n_levels[1]))
+    lbs = list(rng.uniform(rate_lb, rate_25, n_levels[1]))
+
+    customer_levels = []
+    server_levels = []
+
+    for state in range(n_states):
+        server_levels.append([])
+        customer_levels.append([])
+        for clevel in range(n_levels[-1]):
+            rev = (n_states-state-1)
+            rate = (rev/(n_states-1))*(ubc[clevel]-lbc[clevel]) + lbc[clevel]
+
+        for slevel in range(n_levels[1]):
+            rate = (state/(n_states-1))*(ubs[slevel]-lbs[slevel]) + lbs[slevel]
+            server_levels[-1].append(rate)
+
+    customer_levels[-1] = [0 for x in customer_levels[-1]]
+    server_levels[0] = [0 for x in server_levels[0]]
+
+    model = Model(customer_levels, server_levels, rewards, capacities, rng)
+    return model
+
+
 def generate_path_model(model_bounds, rng : np.random._generator.Generator):
     capacities = model_bounds.capacities
 

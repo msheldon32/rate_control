@@ -80,7 +80,7 @@ class Experiment:
     def run(self):
         for run_no in range(self.starting_no, self.ending_no):
             rng = np.random.default_rng(seed=(self.starting_seed + run_no))
-            model_ = model.generate_random_model(self.model_bounds, rng)
+            model_ = model.generate_model_lowd(self.model_bounds, rng)
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
@@ -104,7 +104,7 @@ class Experiment2:
     def run(self):
         for run_no in range(self.starting_no, self.ending_no):
             rng = np.random.default_rng(seed=(self.starting_seed + run_no))
-            model_ = model.generate_random_model_2(self.model_bounds, rng)
+            model_ = model.generate_model_highd(self.model_bounds, rng)
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
