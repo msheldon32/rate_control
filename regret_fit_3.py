@@ -77,9 +77,9 @@ def fit_trace(T, runs):
 
 
 EXPERIMENTS = [
-    ("exp_out/11_states_2/", 50, True, "11 states"),
-    ("exp_out/21_states_2/", 50, True, "21 states"),
-    ("exp_out/51_states_2/", 50, True, "51 states"),
+    ("exp_out/11_states/", 50, True, "11 states"),
+    ("exp_out/21_states/", 50, True, "21 states"),
+    ("exp_out/51_states/", 50, True, "51 states"),
 ]
 
 TRACE_LABELS = {

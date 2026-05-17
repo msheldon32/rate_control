@@ -18,6 +18,9 @@ class Observer:
     def empirical_gain(self):
         return self.total_reward / self.total_time
 
+    def empirical_regret(self, ideal_gain):
+        return ideal_gain * self.total_time - self.total_reward
+
     def trailing_gain(self, trailing_steps):
         t = sum(self.step_times[-trailing_steps:])
         r = sum(self.step_rewards[-trailing_steps:])

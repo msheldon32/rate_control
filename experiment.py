@@ -25,7 +25,7 @@ class ExperimentRun:
         self.ablation_sim = simulator.Simulator(model_, self.ablation_agent, self.ablation_observer, self.rng, rand_rew=rand_rew)
 
 
-        _, self.ideal_gain = self.model.get_optimal_policy(n_iterations=10000)
+        self.ideal_policy, self.ideal_gain = self.model.get_optimal_policy(n_iterations=1000000)
 
         self.show = show
 
@@ -37,8 +37,13 @@ class ExperimentRun:
             if verbose and i > 0 and i % 10000 == 0:
                 print(f"After {i} steps")
                 print(f"Trailing gain (rc): ", self.agent_observer.trailing_gain(10000))
+                print(f"Trailing regret (rc): ", self.agent_observer.empirical_regret(self.ideal_gain))
                 print(f"Trailing gain (ablation): ", self.ablation_observer.trailing_gain(10000))
+                print(f"Trailing regret (ablation): ", self.ablation_observer.empirical_regret(self.ideal_gain))
                 print(f"Ideal gain: ", self.ideal_gain)
+
+                self.agent.model.print_rates()
+                print(self.ideal_policy.policy_mapping)
         
         if self.show:
             opt_viz, real_viz, opt_gain, real_gain, = self.agent.visualize(self.model)
@@ -81,7 +86,7 @@ class Experiment:
     def run(self):
         for run_no in range(self.starting_no, self.ending_no):
             rng = np.random.default_rng(seed=(self.starting_seed + run_no))
-            model_ = model.generate_model_lowd(self.model_bounds, rng)
+            model_ = model.generate_random_model(self.model_bounds, rng)
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
@@ -105,7 +110,7 @@ class Experiment2:
     def run(self):
         for run_no in range(self.starting_no, self.ending_no):
             rng = np.random.default_rng(seed=(self.starting_seed + run_no))
-            model_ = model.generate_model_highd(self.model_bounds, rng)
+            model_ = model.generate_random_model_2(self.model_bounds, rng)
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
@@ -115,6 +120,32 @@ class Experiment2:
                 print(f"Run {run_no} failed, skipping...")
                 continue
             with open(f"exp_out/{self.model_bounds.n_states}_states_2/run_{run_no}", "wb") as f:
+                pickle.dump(run.summarize(), f)
+
+class PricingExperiment:
+    def __init__(self, model_bounds, max_step_count, starting_seed=0, starting_no=0, ending_no=50):
+        self.model_bounds = model_bounds
+        self.starting_seed = 0
+        self.max_step_count = max_step_count
+        self.starting_no = starting_no
+        self.ending_no = ending_no
+        self.starting_seed = starting_seed
+        self.models = []
+        self.rngs = []
+        for run_no in range(self.starting_no, self.ending_no):
+            rng = np.random.default_rng(seed=(self.starting_seed + run_no))
+            self.rngs.append(rng)
+            self.models.append(model.generate_pricing_model(self.model_bounds, rng))
+
+    def run(self):
+        for run_no in range(self.starting_no, self.ending_no):
+            model_ = self.models[run_no]
+            rng = self.rngs[run_no]
+
+            run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
+            #def __init__(self, model_, model_bounds, rng, max_step_count):
+            run.run(verbose=True)
+            with open(f"exp_out/{self.model_bounds.n_states}_states_pricing/run_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
 class PathExperiment:
@@ -155,10 +186,29 @@ def validation_experiment():
     # seed 2000: (3,3), (10,10)
     # seed 3000: (3,3), (25,25)
 
-    # seeds 4000-6000 are for high d
+    # seeds 4000-6000 are for low d
+
+    # 7000: high d 101 states
+    # 8000: low d 101 states
     cap = 5
-    model_bounds = model.ModelBounds((5,5),(3,3), 1, 5)
-    exp = Experiment2(model_bounds, 10000000, starting_seed = 1000, starting_no=0, ending_no=50)
+    model_bounds = model.ModelBounds((50,50),(3,3), 1, 5)
+    exp = Experiment2(model_bounds, 10000000, starting_seed = 7000, starting_no=0, ending_no=50)
+
+    exp.run()
+
+def pricing_experiment(n_states):
+    # schedule:
+    #  11 states: 10000
+    #  21 states: 11000
+    #  51 states: 12000
+    seed = {
+            11: 100000,
+            21: 110000,
+            51: 120000,
+            101: 130000
+            }[n_states]
+    model_bounds = model.ModelBounds((n_states-1,0),(3,1), 1, 5)
+    exp = PricingExperiment(model_bounds, 10000000, starting_seed = seed, starting_no=0, ending_no=50)
 
     exp.run()
 
@@ -174,4 +224,4 @@ def path_experiment():
     exp.run()
 
 if __name__ == "__main__":
-    validation_experiment()
+    pricing_experiment(101)

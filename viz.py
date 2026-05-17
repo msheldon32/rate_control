@@ -72,10 +72,10 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
             if baselines:
                 UCRL2_regret = [[x] for x in normalize(baseline_data["UCRL2"]["regret"])]
                 UCRL3_regret = [[x] for x in normalize(baseline_data["UCRL3"]["regret"])]
-                KL_regret = [[x] for x in normalize(baseline_data["KL"]["regret"])]
+                #KL_regret = [[x] for x in normalize(baseline_data["KL"]["regret"])]
                 UCRL2_loss = [get_loss(baseline_data["UCRL2"], run_data["ideal_gain"])]
                 UCRL3_loss = [get_loss(baseline_data["UCRL3"], run_data["ideal_gain"])]
-                KL_loss = [get_loss(baseline_data["KL"], run_data["ideal_gain"])]
+                #KL_loss = [get_loss(baseline_data["KL"], run_data["ideal_gain"])]
         else:
             for i, x in enumerate(normalize(run_data["rc"]["regret"])):
                 avg_regret[i].append(x)
@@ -88,17 +88,18 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
                     UCRL2_regret[i].append(x)
                 for i, x in enumerate(normalize(baseline_data["UCRL3"]["regret"])):
                     UCRL3_regret[i].append(x)
-                for i, x in enumerate(normalize(baseline_data["KL"]["regret"])):
-                    KL_regret[i].append(x)
+                #for i, x in enumerate(normalize(baseline_data["KL"]["regret"])):
+                #    KL_regret[i].append(x)
                 UCRL2_loss.append(get_loss(baseline_data["UCRL2"], run_data["ideal_gain"]))
                 UCRL3_loss.append(get_loss(baseline_data["UCRL3"], run_data["ideal_gain"]))
-                KL_loss.append(get_loss(baseline_data["KL"], run_data["ideal_gain"]))
+                #KL_loss.append(get_loss(baseline_data["KL"], run_data["ideal_gain"]))
 
         #plt.plot(normalize(run_data["rc"]["regret"]), "b")
         #plt.plot(normalize(run_data["ablation"]["regret"]), "r")
         #plt.plot(normalize(run_data["UCRL"]["regret"]), "g")
         #plt.show()
-    xlabels = [x*10000 for x in range(1000)]
+    #xlabels = [x*10000 for x in range(1000)]
+    xlabels = [x*10000 for x in range(5000)]
     avg_regret_std = [np.std(x) for x in avg_regret]
     abl_regret_std = [np.std(x) for x in abl_regret]
     avg_regret = [np.mean(x) for x in avg_regret]
@@ -106,10 +107,10 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
     if baselines:
         UCRL3_regret_std = [np.std(x) for x in UCRL3_regret]
         UCRL2_regret_std = [np.std(x) for x in UCRL2_regret]
-        KL_regret_std = [np.std(x) for x in KL_regret]
+        #KL_regret_std = [np.std(x) for x in KL_regret]
         UCRL3_regret = [np.mean(x) for x in UCRL3_regret]
         UCRL2_regret = [np.mean(x) for x in UCRL2_regret]
-        KL_regret = [np.mean(x) for x in KL_regret]
+        #KL_regret = [np.mean(x) for x in KL_regret]
     #plt.fill_between(xlabels,np.array(avg_regret)-np.array(avg_regret_std),(np.array(avg_regret)+np.array(avg_regret_std)), alpha=0.9, color="b")
     #plt.fill_between(xlabels,np.array(abl_regret)-np.array(abl_regret_std),(np.array(abl_regret)+np.array(abl_regret_std)), alpha=0.9, color="r")
     if baselines:
@@ -118,7 +119,7 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
         if hide_baselines:
             linewidth /= 1.5
             alpha /= 3
-        plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linestyle=(0, (1,1)), linewidth=linewidth, alpha=alpha)
+        #plt.plot(xlabels,KL_regret,"C2", label="KL_UCRL", linestyle=(0, (1,1)), linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(KL_regret)-np.array(KL_regret_std),(np.array(KL_regret)+np.array(KL_regret_std)), alpha=0.1, color="g")
         plt.plot(xlabels,UCRL2_regret,"C3", label="UCRL2", linestyle=(0, (7,3)), linewidth=linewidth, alpha=alpha)
         #plt.fill_between(xlabels,np.array(UCRL2_regret)-np.array(UCRL2_regret_std),(np.array(UCRL2_regret)+np.array(UCRL2_regret_std)), alpha=0.1, color="orange")
@@ -126,7 +127,7 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
         #plt.fill_between(xlabels,np.array(UCRL3_regret)-np.array(UCRL3_regret_std),(np.array(UCRL3_regret)+np.array(UCRL3_regret_std)), alpha=0.1, color="pink")
     if log:
         plt.yscale("log")
-        plt.ylim(bottom=10000, top=10000000)
+        plt.ylim(bottom=10000, top=5000000)
     else:
         plt.ylim(bottom=0, top=2500000)
         pass
@@ -137,7 +138,8 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
 
     plt.xlabel("Steps", fontsize=FONTSIZE)
     plt.ylabel("Total Regret " + (" (Normalized)" if normalize_regret else ""), fontsize=FONTSIZE)
-    plt.xlim(left=0, right=10000000)
+    #plt.xlim(left=0, right=10000000)
+    plt.xlim(left=0, right=50000000)
     #plt.legend()
     plt.grid(True)
     plt.tick_params(axis="both", labelsize=TICKSIZE)
@@ -158,29 +160,35 @@ def analyze(folder, n_runs, baselines=False, log=False, normalize_regret=True, o
     if baselines:
         print("Total regret (UCRL2): ", UCRL2_regret[-1])
         print("Total regret (UCRL3): ", UCRL3_regret[-1])
-        print("Total regret (KL): ", KL_regret[-1])
+        #print("Total regret (KL): ", KL_regret[-1])
     
     print("Reward ratio (rc): ", np.mean(avg_loss))
     print("Reward ratio (ablation): ", np.mean(abl_loss))
     if baselines:
         print("Reward ratio (UCRL2): ", np.mean(UCRL2_loss))
         print("Reward ratio (UCRL3): ", np.mean(UCRL3_loss))
-        print("Reward ratio (KL): ", np.mean(KL_loss))
+        #print("Reward ratio (KL): ", np.mean(KL_loss))
 
 
 if __name__ == "__main__":
-    if True:
+    if False:
         analyze("exp_out/path_11_states/", 50, False, False, False, "viz/path_11_states.pdf", True)
         analyze("exp_out/path_21_states/", 50, False, False, False, "viz/path_21_states.pdf", True)
         analyze("exp_out/path_51_states/", 50, False, False, False, "viz/path_51_states.pdf", True)
     elif False:
-        analyze("exp_out/11_states/", 50, False, False, False, "viz/11_states.pdf", False)
-        analyze("exp_out/21_states/", 50, False, False, False, "viz/21_states.pdf", False)
-        analyze("exp_out/51_states/", 50, False, False, False, "viz/51_states.pdf", False)
+        analyze("exp_out/11_states/", 42, False, False, False, "viz/11_states.pdf", False)
+        analyze("exp_out/21_states/", 37, False, False, False, "viz/21_states.pdf", False)
+        analyze("exp_out/51_states/", 16, False, False, False, "viz/51_states.pdf", False)
+    elif False:
+        analyze("exp_out/11_states_2/", 1, False, False, False, "viz/11_states_2.pdf", False, start_no=0)
+        analyze("exp_out/21_states_2/", 37, False, False, False, "viz/21_states_2.pdf", False, start_no=0)
+        analyze("exp_out/51_states_2/", 16, False, False, False, "viz/51_states_2.pdf", False, start_no=0)
+        analyze("exp_out/101_states_2/", 1, False, False, False, "viz/101_states_2.pdf", False, start_no=0)
     else:
-        analyze("exp_out/11_states_2/", 50, False, False, False, "viz/11_states_2.pdf", False, start_no=0)
-        analyze("exp_out/21_states_2/", 50, False, False, False, "viz/21_states_2.pdf", False, start_no=0)
-        analyze("exp_out/51_states_2/", 50, False, False, False, "viz/51_states_2.pdf", False, start_no=0)
+        analyze("exp_out/11_states_4.0_pricing/", 1, True, False, True, "viz/11_states_2.pdf", False, start_no=0)
+        analyze("exp_out/21_states_4.0_pricing/", 1, True, False, True, "viz/21_states_2.pdf", False, start_no=0)
+        analyze("exp_out/51_states_4.0_pricing/", 1, True, False, True, "viz/51_states_2.pdf", False, start_no=0)
+
     lines = [
         plt.Line2D([5], [5], color="C0", lw=2, label="Proposed Algorithm"),
         plt.Line2D([5], [5], color="C1", lw=2, linestyle="dashed", label="Ablation"),

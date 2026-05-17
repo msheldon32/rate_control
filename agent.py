@@ -7,6 +7,7 @@ import numpy as np
 import random
 
 INITIAL_CONFIDENCE_PARAM = 10
+MAX_CONFIDENCE_PARAM = 50
 
 class Agent:
     def __init__(self, capacities, n_customer_levels, n_server_levels, rng : np.random._generator.Generator):
@@ -47,7 +48,7 @@ class RC_Agent(Agent):
 
         self.initial_confidence_param = INITIAL_CONFIDENCE_PARAM
 
-        self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, self.initial_confidence_param, self.rng)
+        self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, min(self.initial_confidence_param, MAX_CONFIDENCE_PARAM), self.rng)
         self.policy,_ = self.model.get_optimal_policy()
         self.ablation = ablation
 
@@ -80,7 +81,7 @@ class RC_Agent(Agent):
 
         if new_episode:
             self.exploration.new_episode()
-            confidence_param = self.initial_confidence_param / self.exploration.steps_before_episode
+            confidence_param = min(self.initial_confidence_param / self.exploration.steps_before_episode, MAX_CONFIDENCE_PARAM)
             self.model = optimism.build_optimistic_model(self.parameter_estimator, self.model_bounds, confidence_param, self.rng, self.ablation)
             self.policy, gain = self.model.get_optimal_policy(original_policy=self.policy)
             if self.ablation:
@@ -137,13 +138,15 @@ class LearnersAgent(Agent):
 
         # redo the sojourn time to better match uniformization
         prev_time = self.time
+        n_self_transitions = 0
         while self.time < time:
             self.time += self.uni_constant
+            n_self_transitions += 1
 
         sojourn_time = self.time - prev_time
 
         n_next_transitions = 1
-        n_self_transitions = max(round(sojourn_time/self.uni_constant)-1,0)
+        n_self_transitions -= 1
 
         final_st = sojourn_time - self.uni_constant*n_self_transitions
 

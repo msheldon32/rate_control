@@ -75,7 +75,7 @@ class UCRL2:
         return max_p
 
     # The Extend Value Iteration algorithm (approximated with precision epsilon), in parallel policy updated with the greedy one.
-    def EVI(self, r_estimate, p_estimate, epsilon=0.01, max_iter=1000):
+    def EVI(self, r_estimate, p_estimate, epsilon=0.01, max_iter=100000):
         u0 = self.u - min(self.u)  #sligthly boost the computation and doesn't seems to change the results
         u1 = np.zeros(self.nS)
         sorted_indices = np.arange(self.nS)

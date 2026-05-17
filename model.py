@@ -7,12 +7,14 @@ import random
 from util import *
 
 class ModelRewards:
-    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities, noise=2):
+    def __init__(self, holding_rewards, customer_rewards, server_rewards, capacities, noise=2, deterministic=False, service_process =None):
         self.holding_rewards = holding_rewards
         self.customer_rewards = customer_rewards
         self.server_rewards = server_rewards
         self.capacities = capacities
         self.noise = noise
+        self.deterministic = deterministic
+        self.service_process = service_process
 
     def beta_gen(self, mean, rng):
         beta_mean = (mean+1)/2
@@ -30,14 +32,24 @@ class ModelRewards:
 
     def generate_customer_reward(self, state_idx, level, rng):
         #return self.customer_rewards[state_idx][level]+ rng.normal(0, self.noise)
+        if self.deterministic:
+            return self.customer_rewards[state_idx][level]
 
         return self.beta_gen(self.customer_rewards[state_idx][level], rng)
 
     def generate_server_reward(self, state_idx, level, rng):
         #return self.server_rewards[state_idx][level]+ rng.normal(0, self.noise)
+        #return self.beta_gen(self.server_rewards[state_idx][level], rng)
+        if self.deterministic:
+            if self.service_process is not None:
+                return (self.service_process(rng))(state_idx, level)
+            return self.server_rewards[state_idx][level]
         return self.beta_gen(self.server_rewards[state_idx][level], rng)
 
     def generate_holding_reward(self, state_idx, rng):
+        #return self.beta_gen(self.holding_rewards[state_idx], rng)
+        if self.deterministic:
+            return self.holding_rewards[state_idx]
         return self.beta_gen(self.holding_rewards[state_idx], rng)
 
     def print_rewards(self):
@@ -315,7 +327,7 @@ class Model:
                     bias_nom += self.get_state_reward(state_idx, (cust_level, serv_level))
                     bias_nom -= gain
 
-                    if (bias_nom/total_rate) > max_bias + 1e-2:
+                    if (bias_nom/total_rate) > max_bias:
                         max_bias = bias_nom/total_rate
                         argmax = (cust_level, serv_level)
                 #if state_idx >= self.n_states-2:
@@ -328,38 +340,57 @@ class Model:
         return policy.Policy(new_mapping, self.capacities), gain, changed
 
     def evaluate_policy2(self, policy_):
-        # Solve for gain g and bias h via the average-reward Bellman equation:
-        #   g = r(s) + cust_rate(s)*(h(s+1)-h(s)) + serv_rate(s)*(h(s-1)-h(s))
-        # plus the normalization h(0) = 0. This is an (n+1) x (n+1) linear
-        # system in unknowns x = [h(0), ..., h(n-1), g], solved via lstsq (SVD)
-        # for numerical stability rather than the forward/backward analytical
-        # recursion in evaluate_policy.
+        # Solve directly for the bias differences delta(s) = h(s+1) - h(s)
+        # and the gain g. These are uniquely determined by the Bellman
+        # equations -- no normalization / anchor row is needed, so no
+        # implicit choice of "which bias is small" is baked into the system.
+        # Bellman at state s:
+        #   g = r(s) + cust_rate(s)*delta(s) - serv_rate(s)*delta(s-1)
+        # gives n equations in n unknowns x = [delta(0), ..., delta(n-2), g].
+        # Boundary states drop the term whose rate is zero (serv_rate(0) = 0
+        # and cust_rate(n-1) = 0). Solved with np.linalg.solve (LU with
+        # partial pivoting) -- no truncation, no min-norm shrinkage.
         n = self.n_states
-        A = np.zeros((n + 1, n + 1))
-        b = np.zeros(n + 1)
+        A = np.zeros((n, n))
+        b = np.zeros(n)
+        g_col = n - 1
 
-        for state_idx in range(n):
+        # State 0: -cust_rate * delta(0) + g = r(0)
+        action = policy_.get_action_idx(0)
+        cust_rate = self.customer_levels[0][action[0]]
+        A[0, 0] = -cust_rate
+        A[0, g_col] = 1.0
+        b[0] = self.get_state_reward(0, action)
+
+        # Interior: serv_rate * delta(s-1) - cust_rate * delta(s) + g = r(s)
+        for state_idx in range(1, n - 1):
             action = policy_.get_action_idx(state_idx)
             cust_rate = self.customer_levels[state_idx][action[0]]
             serv_rate = self.server_levels[state_idx][action[1]]
-            r = self.get_state_reward(state_idx, action)
+            A[state_idx, state_idx - 1] = serv_rate
+            A[state_idx, state_idx] = -cust_rate
+            A[state_idx, g_col] = 1.0
+            b[state_idx] = self.get_state_reward(state_idx, action)
 
-            if cust_rate > 0:
-                A[state_idx, state_idx + 1] += cust_rate
-                A[state_idx, state_idx] -= cust_rate
-            if serv_rate > 0:
-                A[state_idx, state_idx - 1] += serv_rate
-                A[state_idx, state_idx] -= serv_rate
-            A[state_idx, n] = -1.0
-            b[state_idx] = -r
+        # State n-1: serv_rate * delta(n-2) + g = r(n-1)
+        action = policy_.get_action_idx(n - 1)
+        serv_rate = self.server_levels[n - 1][action[1]]
+        A[n - 1, n - 2] = serv_rate
+        A[n - 1, g_col] = 1.0
+        b[n - 1] = self.get_state_reward(n - 1, action)
 
-        A[n, 0] = 1.0
-        b[n] = 0.0
+        x = np.linalg.solve(A, b)
 
-        x, *_ = np.linalg.lstsq(A, b, rcond=None)
+        deltas = [float(v) for v in x[:n - 1]]
+        gain = float(x[g_col])
 
-        bias = [float(v) for v in x[:n]]
-        gain = float(x[n])
+        # Reconstruct h from the bias differences. The integration constant
+        # (h(0) = 0) is arbitrary -- improve_policy2 compares actions within
+        # a single state, and any constant shift in h drops out of that
+        # comparison, so this anchor has no algorithmic effect.
+        bias = [0.0]
+        for d in deltas:
+            bias.append(bias[-1] + d)
 
         return gain, bias
 
@@ -553,7 +584,7 @@ class Model:
             new_policy = original_policy
 
         for i in range(n_iterations):
-            new_policy, gain, changed = self.improve_policy(new_policy)
+            new_policy, gain, changed = self.improve_policy2(new_policy)
             if not changed:
                 break
         gain, bias = self.evaluate_policy(new_policy)
@@ -579,9 +610,9 @@ def generate_random_model(model_bounds, rng : np.random._generator.Generator):
     for state_idx in range(n_states):
         state = state_idx-capacities[1]
         if state >= 0:
-            holding_rewards.append(state/(capacities[0]+1))
+            holding_rewards.append(-state/(capacities[0]+1))
         else:
-            holding_rewards.append(-state/(capacities[1]+1))
+            holding_rewards.append(state/(capacities[1]+1))
         #holding_rewards.append(0.04 * abs(state))
     customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
     server_rewards = [list(rng.uniform(-1,1,n_levels[1])) for i in range(n_states)]
@@ -623,9 +654,9 @@ def generate_random_model_2(model_bounds, rng : np.random._generator.Generator):
     for state_idx in range(n_states):
         state = state_idx-capacities[1]
         if state >= 0:
-            holding_rewards.append(state/(capacities[0]+1))
+            holding_rewards.append(-state/(capacities[0]+1))
         else:
-            holding_rewards.append(-state/(capacities[1]+1))
+            holding_rewards.append(state/(capacities[1]+1))
         #holding_rewards.append(0.04 * abs(state))
 
     customer_rewards = [list(rng.uniform(-1,1,n_levels[0])) for i in range(n_states)]
@@ -662,109 +693,154 @@ def generate_random_model_2(model_bounds, rng : np.random._generator.Generator):
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
     return model
 
-def generate_model_lowd(model_bounds, rng):
+def generate_server_model(model_bounds, rng): 
     capacities = model_bounds.capacities
-    n_levels = model_bounds.n_levels
-    rate_lb = model_bounds.rate_lb
-    rate_ub = model_bounds.rate_ub
 
     n_states = sum(capacities)+1
-    #holding_rewards = list(rng.uniform(-1,1,n_states))
-    holding_rewards = []
-    for state_idx in range(n_states):
-        state = state_idx-capacities[1]
-        if state >= 0:
-            holding_rewards.append(-state/(capacities[0]+1))
-        else:
-            holding_rewards.append(state/(capacities[1]+1))
-        #holding_rewards.append(0.04 * abs(state))
 
-    customer_rewards = list(rng.uniform(0,1,n_levels[0]))
-    customer_rewards = [customer_rewards for i in range(n_states)]
-    server_rewards = list(rng.uniform(-1,0,n_levels[1]))
-    server_rewards = [server_rewards for i in range(n_states)]
-    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+    abandonment_rate = 2.5
+    max_server_rate = 2.5
+    arrival_rate = 2.5
 
-    rate_midpoint = (rate_ub+rate_lb)/2
-    ubc = list(rng.uniform(rate_midpoint, rate_ub, n_levels[0]))
-    lbc = list(rng.uniform(rate_lb, rate_midpoint, n_levels[0]))
-    ubs = list(rng.uniform(rate_midpoint, rate_ub, n_levels[1]))
-    lbs = list(rng.uniform(rate_lb, rate_midpoint, n_levels[1]))
+    def generate_sensitivities(rng):
+        # first difference
+        fd = [rng.uniform(0,1) for i in range(n_states)]
+        unnorm = [0]
+        for x in fd:
+            unnorm.append(unnorm[-1] + x)
+        unnorm = unnorm[:n_states]
+        return [(x/unnorm[-1]) for x in unnorm]
 
-    customer_levels = []
+
+    sensitivities = generate_sensitivities(rng)
+    abandonments = [(i/n_states)*y*abandonment_rate for i, y in enumerate(sensitivities)]
+
+    clipgauss = lambda m, s, l, u: max(min(rng.normal(loc=m, scale=s), u),l)
+
+    service_cost = sorted([clipgauss(-0.25, 0.25, -1, 0) for i in range(3)])
+    server_rates = sorted([clipgauss(2, 0.5, 1.5, max_server_rate) for i in range(3)], reverse=True)
+
+    
+    #server_rewards = [[get_service_cost(i)] for i in range(n_states)]
     server_levels = []
+    server_rewards = []
+    p_abandon = []
+    
+    for s in range(n_states):
+        server_levels.append([abandonments[s] + x for x in server_rates])
+        rew = []
+        prob = []
 
-    for state in range(n_states):
-        server_levels.append([])
-        customer_levels.append([])
-        for clevel in range(n_levels[-1]):
-            rev = (n_states-state-1)
-            rate = (rev/(n_states-1))*(ubc[clevel]-lbc[clevel]) + lbc[clevel]
-            customer_levels[-1].append(rate)
+        for i, x in enumerate(server_rates):
+            p = abandonments[s]/(abandonments[s] + x)
+            prob.append(p)
+            rew.append(-p + (1-p) * service_cost[i])
 
-        for slevel in range(n_levels[1]):
-            rate = (state/(n_states-1))*(ubs[slevel]-lbs[slevel]) + lbs[slevel]
-            server_levels[-1].append(rate)
+        p_abandon.append(prob)
+        server_rewards.append(rew)
 
-    customer_levels[-1] = [0 for x in customer_levels[-1]]
     server_levels[0] = [0 for x in server_levels[0]]
 
+    generate_sc = lambda rng: (lambda state, level: -1 if rng.uniform() < p_abandon[state][level] else service_cost[level])
+        
+
+    holding_rewards = [-1.0*(i/(capacities[0]+1)) for i in range(n_states)]
+    customer_rewards = [[1] for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities, deterministic=True, service_process=generate_sc)
+    
+
+    customer_levels = []
+
+    for state in range(n_states):
+        rate = arrival_rate - sensitivities[state]
+
+        customer_levels.append([rate])
+
+    customer_levels[-1] = [0 for x in customer_levels[-1]]
+
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
-    model.print_rates()
-    model.rewards.print_rewards()
+
     return model
 
-
-def generate_model_highd(model_bounds, rng):
+def generate_pricing_model(model_bounds, rng): 
     capacities = model_bounds.capacities
-    n_levels = model_bounds.n_levels
-    rate_lb = model_bounds.rate_lb
-    rate_ub = model_bounds.rate_ub
 
     n_states = sum(capacities)+1
-    #holding_rewards = list(rng.uniform(-1,1,n_states))
-    holding_rewards = []
-    for state_idx in range(n_states):
-        state = state_idx-capacities[1]
-        if state >= 0:
-            holding_rewards.append(-state/(capacities[0]+1))
-        else:
-            holding_rewards.append(state/(capacities[1]+1))
-        #holding_rewards.append(0.04 * abs(state))
 
-    customer_rewards = list(rng.uniform(0,1,n_levels[0]))
-    customer_rewards = [customer_rewards for i in range(n_states)]
-    server_rewards = list(rng.uniform(-1,0,n_levels[1]))
-    server_rewards = [server_rewards for i in range(n_states)]
-    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+    prices = [i*(1/3)*0.5 for i in range(0,3)]
 
-    rate_75 = (rate_ub-rate_lb)*0.75 + rate_lb
-    rate_25 = (rate_ub-rate_ub)*0.25 + rate_ub
-    ubc = list(rng.uniform(rate_75, rate_ub, n_levels[0]))
-    lbc = list(rng.uniform(rate_lb, rate_25, n_levels[0]))
-    ubs = list(rng.uniform(rate_75, rate_ub, n_levels[1]))
-    lbs = list(rng.uniform(rate_lb, rate_25, n_levels[1]))
+    n_servers = n_states//10
+
+    service_rate = 3/n_servers
+    abandonment_rate = 1
+
+    def generate_sensitivities(rng):
+        # first difference
+        fd = [rng.uniform(0,1) for i in range(n_states)]
+        unnorm = [0]
+        for x in fd:
+            unnorm.append(unnorm[-1] + x)
+        unnorm = unnorm[:n_states]
+        return [(x/unnorm[-1]) for x in unnorm]
+
+
+    sensitivities = generate_sensitivities(rng)
+    abandonments = [(i/n_states)*y*abandonment_rate for i, y in enumerate(sensitivities)]
+
+    get_service_rate = lambda i: min(i*service_rate, n_servers*service_rate)
+    get_abandonment_rate = lambda i: abandonments[i]
+    sc = lambda i, x, y: (0.5*x(i)-y(i))/(x(i) + y(i)) if i != 0 else 0
+    abandon_bind = lambda i, x, y: y(i)/(x(i) + y(i)) if i != 0 else 0
+    p_abandon = lambda i: abandon_bind(i, get_service_rate, get_abandonment_rate)
+    get_service_cost = lambda i: sc(i, get_service_rate, get_abandonment_rate)
+
+    generate_sc = lambda rng: (lambda i, _: -1 if rng.uniform() < p_abandon(i) else 0.5)
+    
+    server_rewards = [[get_service_cost(i)] for i in range(n_states)]
+    holding_rewards = [-1.0*(i/(capacities[0]+1)) for i in range(n_states)]
+    customer_rewards = [list(prices) for i in range(n_states)]
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities, deterministic=True, service_process=generate_sc)
+    
+    est_rewards = []
+    for i in range(n_states):
+        csum = 0
+        for j in range(1000):
+            csum += generate_sc(rng)(i, 0)
+        est_rewards.append(csum/1000)
+
+    arrival_rate = 2 
+    server_levels = [[get_service_rate(i) + get_abandonment_rate(i)] for i in range(n_states)]
+    server_levels[0] = [0]
 
     customer_levels = []
-    server_levels = []
 
+    price_elasticity = rng.uniform(0.8,1.2)
+
+    default_p = 1
+    default_w = 1/service_rate
 
     for state in range(n_states):
-        server_levels.append([])
-        customer_levels.append([])
-        for clevel in range(n_levels[-1]):
-            rev = (n_states-state-1)
-            rate = (rev/(n_states-1))*(ubc[clevel]-lbc[clevel]) + lbc[clevel]
-            customer_levels[-1].append(rate)
+        #est_waiting_time = sum([1/x[0] for x in server_levels[1:state+1]])
+        #est_waiting_time = max((state+1)*service_rate
+        service_time = 1/service_rate
+        queue_waiting_time = (1/(n_servers*service_rate)) * max((state+1)-n_servers, 0)
+        est_waiting_time = service_time + queue_waiting_time
 
-        for slevel in range(n_levels[1]):
-            rate = (state/(n_states-1))*(ubs[slevel]-lbs[slevel]) + lbs[slevel]
-            server_levels[-1].append(rate)
+        rates = []
+
+        for p in prices:
+            rate = arrival_rate
+            rate *= 1-(price_elasticity * ((p-default_p)/(default_p+0.5)))
+            rate -= 0.5*sensitivities[state]
+
+            rates.append(rate)
+
+        customer_levels.append(rates)
 
     customer_levels[-1] = [0 for x in customer_levels[-1]]
-    server_levels[0] = [0 for x in server_levels[0]]
 
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
+
     return model
 
 
@@ -785,7 +861,7 @@ def generate_path_model(model_bounds, rng : np.random._generator.Generator):
     customer_rewards = [[0,1] for i in range(n_states)]
     server_rewards = [[0] for i in range(n_states)]
     holding_rewards = [0 for i in range(n_states)]
-    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities)
+    rewards = ModelRewards(holding_rewards, customer_rewards, server_rewards, capacities, deterministic=True)
 
     model = Model(customer_levels, server_levels, rewards, capacities, rng)
 

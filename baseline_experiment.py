@@ -56,6 +56,7 @@ class ExperimentRun:
                 print(f"After {i} steps")
                 for k, v in self.observers.items():
                     print(f"Trailing gain ({k}): ", v.trailing_gain(10000))
+                    print(f"Total regret ({k}): ", v.empirical_regret(self.ideal_gain))
                 print(f"Ideal gain: ", self.ideal_gain)
 
     def summarize(self, timestep=10000):
@@ -76,11 +77,17 @@ class Experiment:
         self.starting_no = starting_no
         self.ending_no = ending_no
         self.starting_seed = starting_seed
+        self.models = []
+        self.rngs = []
+        for run_no in range(self.starting_no, self.ending_no):
+            rng = np.random.default_rng(seed=(self.starting_seed + run_no))
+            self.rngs.append(rng)
+            self.models.append(model.generate_pricing_model(self.model_bounds, rng))
 
     def run(self):
         for run_no in range(self.starting_no, self.ending_no):
-            rng = np.random.default_rng(seed=(self.starting_seed + run_no))
-            model_ = model.generate_random_model(self.model_bounds, rng)
+            model_ = self.models[run_no - self.starting_no]
+            rng = self.rngs[run_no - self.starting_no]
 
             run = ExperimentRun(model_, self.model_bounds, rng, self.max_step_count)
             #def __init__(self, model_, model_bounds, rng, max_step_count):
@@ -91,7 +98,7 @@ class Experiment:
                 print(f"Run {run_no} failed, skipping...")
                 traceback.print_exc()
                 continue"""
-            with open(f"exp_out/{self.model_bounds.n_states}_states/baselines_{run_no}", "wb") as f:
+            with open(f"exp_out/{self.model_bounds.n_states}_states_pricing/baselines_{run_no}", "wb") as f:
                 pickle.dump(run.summarize(), f)
 
 
@@ -162,6 +169,22 @@ def validation_experiment():
 
     exp.run()
 
+def pricing_experiment():
+    # seed 1000: (3,3), (5,5)
+    # seed 2000: (3,3), (10,10)
+    # seed 3000: (3,3), (25,25)
+    bounds = {
+        1: ((10,0),100000),
+        2: ((20,0),110000),
+        3: ((50,0),120000),
+            }
+    
+    capacities, seed = bounds[int(sys.argv[1])]
+    model_bounds = model.ModelBounds(capacities,(3,1), 1, 5)
+    exp = Experiment(model_bounds, 10000000, starting_seed = seed, starting_no=int(sys.argv[2]), ending_no=int(sys.argv[3]))
+
+    exp.run()
+
 
 def path_experiment():
     # seed 10,000
@@ -175,5 +198,5 @@ def path_experiment():
     exp.run()
 
 if __name__ == "__main__":
-    validation_experiment()
+    pricing_experiment()
 
