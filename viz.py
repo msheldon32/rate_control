@@ -180,14 +180,14 @@ if __name__ == "__main__":
         analyze("exp_out/21_states/", 37, False, False, False, "viz/21_states.pdf", False)
         analyze("exp_out/51_states/", 16, False, False, False, "viz/51_states.pdf", False)
     elif False:
-        analyze("exp_out/11_states_2/", 1, False, False, False, "viz/11_states_2.pdf", False, start_no=0)
-        analyze("exp_out/21_states_2/", 37, False, False, False, "viz/21_states_2.pdf", False, start_no=0)
-        analyze("exp_out/51_states_2/", 16, False, False, False, "viz/51_states_2.pdf", False, start_no=0)
-        analyze("exp_out/101_states_2/", 1, False, False, False, "viz/101_states_2.pdf", False, start_no=0)
+        analyze("exp_out/11_states_2/", 50, False, False, False, "viz/11_states_2.pdf", False, start_no=0)
+        analyze("exp_out/21_states_2/", 50, False, False, False, "viz/21_states_2.pdf", False, start_no=0)
+        analyze("exp_out/51_states_2/", 50, False, False, False, "viz/51_states_2.pdf", False, start_no=0)
+        analyze("exp_out/101_states_2/",50, False, False, False, "viz/101_states_2.pdf", False, start_no=0)
     else:
-        analyze("exp_out/11_states_4.0_pricing/", 1, True, False, True, "viz/11_states_2.pdf", False, start_no=0)
-        analyze("exp_out/21_states_4.0_pricing/", 1, True, False, True, "viz/21_states_2.pdf", False, start_no=0)
-        analyze("exp_out/51_states_4.0_pricing/", 1, True, False, True, "viz/51_states_2.pdf", False, start_no=0)
+        analyze("exp_out/11_states_4.0_pricing/", 10, True, False, True, "viz/11_states_2.pdf", False, start_no=0)
+        analyze("exp_out/21_states_4.0_pricing/", 8, True, False, True, "viz/21_states_2.pdf", False, start_no=0)
+        analyze("exp_out/51_states_4.0_pricing/", 10, True, False, True, "viz/51_states_2.pdf", False, start_no=0)
 
     lines = [
         plt.Line2D([5], [5], color="C0", lw=2, label="Proposed Algorithm"),
